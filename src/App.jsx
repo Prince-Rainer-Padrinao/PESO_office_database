@@ -21,16 +21,13 @@ const LoginScreen = ({ onLogin }) => {
     e.preventDefault();
     if (loginMode === 'admin') {
       if (username === 'admin' && password === 'admin123') {
-        onLogin('admin', username);
+        onLogin('admin', 'Administrator');
       } else {
         alert('Invalid admin credentials. Use admin / admin123 for now.');
       }
     } else {
-      if (username.trim()) {
-        onLogin('user', username);
-      } else {
-        alert('Please enter your name.');
-      }
+      // No name required for User Form Entry anymore
+      onLogin('user', 'Form User');
     }
   };
 
@@ -44,10 +41,10 @@ const LoginScreen = ({ onLogin }) => {
 
         <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
           <button 
-            onClick={() => { setLoginMode('user'); setPassword(''); }}
+            onClick={() => { setLoginMode('user'); setPassword(''); setUsername(''); }}
             className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${loginMode === 'user' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}
           >
-            Staff (Form Entry)
+            User (Form Entry)
           </button>
           <button 
             onClick={() => setLoginMode('admin')}
@@ -58,34 +55,38 @@ const LoginScreen = ({ onLogin }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-              {loginMode === 'admin' ? 'Username' : 'Your Name'}
-            </label>
-            <div className="relative">
-              <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                type="text" 
-                placeholder={loginMode === 'admin' ? "admin" : "Enter your full name"}
-                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-          </div>
-
+          
+          {/* ONLY SHOW INPUTS IF ADMIN MODE IS SELECTED */}
           {loginMode === 'admin' && (
-            <div className="space-y-1 animate-in fade-in slide-in-from-top-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="password" 
-                  placeholder="admin123"
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                  Username
+                </label>
+                <div className="relative">
+                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="text" 
+                    placeholder="admin"
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="password" 
+                    placeholder="admin123"
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -94,7 +95,7 @@ const LoginScreen = ({ onLogin }) => {
             type="submit"
             className="w-full py-3.5 mt-4 bg-sky-500 text-white rounded-xl font-bold text-sm hover:bg-sky-600 shadow-lg shadow-sky-200 transition-all active:scale-95 flex items-center justify-center gap-2"
           >
-            Sign In
+            {loginMode === 'admin' ? 'Sign In' : 'Enter'}
           </button>
         </form>
       </div>
@@ -317,6 +318,7 @@ export default function App() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} required />
           <FormInput name="first_name" label="First Name" defaultValue={data.first_name} required />
+          <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
           <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
           <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
           <FormInput name="birthdate" label="Birthdate" type="date" defaultValue={data.birthdate} />
@@ -371,6 +373,7 @@ export default function App() {
 
       <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
       <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
+      <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
       <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
       <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
       <FormSelect name="civil_status" label="Civil Status" options={["Single", "Married", "Widowed", "Separated"]} defaultValue={data.civil_status} />
@@ -396,9 +399,10 @@ export default function App() {
 
       <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
       <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
+      <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
       <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
       <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
-      <FormSelect name="department" label="Department" options={["Mayor's Office", "Municipal/City Planning Office", "Engineering Office", "Agriculture Office", "Social Welfare Office", "Health Office", "Treasurer's Office", "Assessor's Office", "Administrative Office"]} defaultValue={data.department} />
+      <FormSelect name="department" label="Department" options={["Mayor's Office", "Engineering Office", "Health Office", "Agriculture Office"]} defaultValue={data.department} />
       <FormInput name="position" label="Position" defaultValue={data.position} />
       <FormSelect name="gfps_role" label="GFPS Role" options={["Executive Committee Chairperson", "Executive Committee Co-Chair", "Technical Working Group Head", "TWG Member", "Secretariat"]} defaultValue={data.gfps_role} />
       <FormInput name="contact_number" label="Contact Number" defaultValue={data.contact_number} />
@@ -440,7 +444,6 @@ export default function App() {
   const TrainingFormFields = ({ data = {} }) => (
     <div className="space-y-6">
       <FormInput name="training_title" label="Training Title" placeholder="e.g. Gender Sensitivity Training" defaultValue={data.training_title} />
-      {/* <FormSelect name="department" label="Department" options={["Mayor's Office", "Municipal/City Planning Office", "Engineering Office", "Agriculture Office", "Social Welfare Office", "Health Office", "Treasurer's Office", "Assessor's Office", "Administrative Office"]} defaultValue={data.department} /> */}
       <FormSelect name="office" label="Conducting Office" options={["Mayor's Office", "Municipal/City Planning Office", "Engineering Office", "Agriculture Office", "Social Welfare Office", "Health Office", "Treasurer's Office", "Assessor's Office", "Administrative Office"]} defaultValue={data.office} />
       <div className="grid grid-cols-2 gap-6">
         <FormInput name="participants_male" label="Male Participants" type="number" defaultValue={data.participants_male} />
@@ -462,7 +465,7 @@ export default function App() {
 
     if (tab === 'Profiles') return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in">
-        <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name}`} />
+        <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name} ${rawData.middle_name || ''}`.trim()} />
         <DetailItem label="Sex / Age" value={`${rawData.sex} / ${rawData.age}`} />
         <DetailItem label="Birthdate" value={rawData.birthdate} />
         <DetailItem label="Civil Status" value={rawData.civil_status} />
@@ -479,7 +482,7 @@ export default function App() {
     if (tab === 'LGU') return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in">
          <DetailItem label="Employee ID" value={rawData.employee_id} />
-         <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name}`} />
+         <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name} ${rawData.middle_name || ''}`.trim()} />
          <DetailItem label="Sex / Age" value={`${rawData.sex} / ${rawData.age}`} />
          <DetailItem label="Civil Status" value={rawData.civil_status} />
          <DetailItem label="Department" value={rawData.department} />
@@ -494,7 +497,7 @@ export default function App() {
     if (tab === 'GFPS') return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in">
          <DetailItem label="GFPS ID" value={rawData.gfps_id} />
-         <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name}`} />
+         <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name} ${rawData.middle_name || ''}`.trim()} />
          <DetailItem label="Sex / Age" value={`${rawData.sex} / ${rawData.age}`} />
          <DetailItem label="Department" value={rawData.department} />
          <DetailItem label="Position" value={rawData.position} />
@@ -518,7 +521,7 @@ export default function App() {
 
     if (tab === 'OFW') return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in">
-         <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name}`} />
+         <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name} ${rawData.middle_name || ''}`.trim()} />
          <DetailItem label="Status" value={rawData.current_status} />
          <DetailItem label="Country" value={rawData.country_employment} />
          <DetailItem label="Job Position" value={rawData.job_position} />
@@ -647,7 +650,7 @@ export default function App() {
                       columns={["Name & Info", "Sector", "Specific Details", "Actions"]}
                       data={profiles.map(p => ({
                         id: p.id, raw: p,
-                        col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name}</p><p className="text-xs font-medium text-slate-400 mt-1">{p.sex} • {p.age} yrs • {p.barangay}</p></>,
+                        col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><p className="text-xs font-medium text-slate-400 mt-1">{p.sex} • {p.age} yrs • {p.barangay}</p></>,
                         col2: <span className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase tracking-wide">{p.sector}</span>,
                         col3: p.disability_type || p.women_status || p.youth_status || "N/A"
                       }))}
@@ -666,7 +669,7 @@ export default function App() {
                       columns={["OFW Name", "Deployment Info", "Status", "Actions"]}
                       data={ofwData.map(p => ({
                         id: p.id, raw: p,
-                        col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name}</p><p className="text-xs font-medium text-slate-400 mt-1">{p.job_position}</p></>,
+                        col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><p className="text-xs font-medium text-slate-400 mt-1">{p.job_position}</p></>,
                         col2: <><p className="font-semibold text-slate-700">{p.country_employment}</p><p className="text-xs text-slate-400">Deployed: {p.deployment_date}</p></>,
                         col3: <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide ${p.current_status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{p.current_status}</span>
                       }))}
@@ -685,7 +688,7 @@ export default function App() {
                       columns={["Employee", "Department", "Status", "Actions"]}
                       data={lguData.map(p => ({
                         id: p.id, raw: p,
-                        col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name}</p><p className="text-xs font-medium text-slate-400 mt-1">ID: {p.employee_id} • {p.position_title}</p></>,
+                        col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><p className="text-xs font-medium text-slate-400 mt-1">ID: {p.employee_id} • {p.position_title}</p></>,
                         col2: <><p className="font-semibold text-slate-700">{p.department}</p><p className="text-xs text-slate-400">{p.salary_grade}</p></>,
                         col3: <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold uppercase tracking-wide">{p.employment_status}</span>
                       }))}
@@ -704,7 +707,7 @@ export default function App() {
                       columns={["Member Name", "Department & Position", "GFPS Role", "Actions"]}
                       data={gfpsData.map(p => ({
                         id: p.id, raw: p,
-                        col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name}</p><p className="text-xs font-medium text-slate-400 mt-1">ID: {p.gfps_id}</p></>,
+                        col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><p className="text-xs font-medium text-slate-400 mt-1">ID: {p.gfps_id}</p></>,
                         col2: <><p className="font-semibold text-slate-700">{p.department}</p><p className="text-xs text-slate-400">{p.position}</p></>,
                         col3: <span className="px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg text-xs font-bold uppercase tracking-wide">{p.gfps_role}</span>
                       }))}
