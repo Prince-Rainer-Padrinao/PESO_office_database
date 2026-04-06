@@ -26,7 +26,6 @@ const LoginScreen = ({ onLogin }) => {
         alert('Invalid admin credentials. Use admin / admin123 for now.');
       }
     } else {
-      // No name required for User Form Entry anymore
       onLogin('user', 'Form User');
     }
   };
@@ -35,7 +34,7 @@ const LoginScreen = ({ onLogin }) => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 font-sans p-4">
       <div className="bg-white p-8 sm:p-10 rounded-[2rem] shadow-xl border border-slate-100 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-sky-600 tracking-tight mb-2">Master Registry</h1>
+          <h1 className="text-3xl font-black text-sky-600 tracking-tight mb-2">GAD Database</h1>
           <p className="text-slate-500 font-medium">Please sign in to continue</p>
         </div>
 
@@ -55,46 +54,25 @@ const LoginScreen = ({ onLogin }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          
-          {/* ONLY SHOW INPUTS IF ADMIN MODE IS SELECTED */}
           {loginMode === 'admin' && (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Username
-                </label>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Username</label>
                 <div className="relative">
                   <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input 
-                    type="text" 
-                    placeholder="admin"
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                  />
+                  <input type="text" placeholder="admin" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium" value={username} onChange={(e) => setUsername(e.target.value)} />
                 </div>
               </div>
-
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input 
-                    type="password" 
-                    placeholder="admin123"
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+                  <input type="password" placeholder="admin123" className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium" value={password} onChange={(e) => setPassword(e.target.value)} />
                 </div>
               </div>
             </div>
           )}
-
-          <button 
-            type="submit"
-            className="w-full py-3.5 mt-4 bg-sky-500 text-white rounded-xl font-bold text-sm hover:bg-sky-600 shadow-lg shadow-sky-200 transition-all active:scale-95 flex items-center justify-center gap-2"
-          >
+          <button type="submit" className="w-full py-3.5 mt-4 bg-sky-500 text-white rounded-xl font-bold text-sm hover:bg-sky-600 shadow-lg shadow-sky-200 transition-all active:scale-95 flex items-center justify-center gap-2">
             {loginMode === 'admin' ? 'Sign In' : 'Enter'}
           </button>
         </form>
@@ -123,20 +101,28 @@ export default function App() {
   const [editingData, setEditingData] = useState({});
   const [selectedSector, setSelectedSector] = useState("");
 
-  // --- DATA FETCHING ---
   const fetchData = async () => {
     setLoading(true);
     let table = '';
-    if (activeTab === 'Profiles') table = 'profiles';
-    if (activeTab === 'LGU') table = 'lgu_employees';
-    if (activeTab === 'GFPS') table = 'gfps_members';
+    if (activeTab === 'Profiles' || activeTab === 'Dashboard') table = 'profiles'; // Dashboard needs profiles
+    if (activeTab === 'LGU' || activeTab === 'Dashboard') table = 'lgu_employees'; // Dashboard needs LGU
+    if (activeTab === 'GFPS' || activeTab === 'Dashboard') table = 'gfps_members'; // Dashboard needs GFPS
     if (activeTab === 'OFW') table = 'ofw_profiles';
-    if (activeTab === 'Trainings') table = 'capacity_trainings';
+    if (activeTab === 'Trainings' || activeTab === 'Dashboard') table = 'capacity_trainings'; // Dashboard needs Trainings
 
-    if (table) {
+    // Fetch all for dashboard
+    if (activeTab === 'Dashboard') {
+      const pRes = await supabase.from('profiles').select('*');
+      const lRes = await supabase.from('lgu_employees').select('*');
+      const gRes = await supabase.from('gfps_members').select('*');
+      const tRes = await supabase.from('capacity_trainings').select('*').order('date_conducted', { ascending: false });
+      if (pRes.data) setProfiles(pRes.data);
+      if (lRes.data) setLguData(lRes.data);
+      if (gRes.data) setGfpsData(gRes.data);
+      if (tRes.data) setTrainings(tRes.data);
+    } else if (table) {
       const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
-      if (error) console.error("Error fetching:", error);
-      else {
+      if (!error) {
         if (table === 'profiles') setProfiles(data);
         if (table === 'lgu_employees') setLguData(data);
         if (table === 'gfps_members') setGfpsData(data);
@@ -151,6 +137,46 @@ export default function App() {
     if (userRole) fetchData();
   }, [activeTab, userRole]);
 
+  // --- DASHBOARD CALCULATION HELPERS ---
+  const countProfile = (sector, field, val, sex) => {
+    return profiles.filter(p => 
+      p.sector === sector && 
+      (field ? p[field] === val : true) && 
+      (sex ? (p.sex === sex || p.sex === (sex === 'Male' ? 'M' : 'F')) : true)
+    ).length;
+  };
+
+  const countAge = (sector, min, max, sex) => {
+    return profiles.filter(p => {
+      const age = parseInt(p.age) || 0;
+      return p.sector === sector && age >= min && age <= max && 
+             (sex ? (p.sex === sex || p.sex === (sex === 'Male' ? 'M' : 'F')) : true);
+    }).length;
+  };
+
+  const countLgu = (field, val, sex) => lguData.filter(p => (field ? p[field] === val : true) && (sex ? p.sex === sex : true)).length;
+  
+  const countGfps = (roleFilter, sex) => gfpsData.filter(p => {
+    if (sex && p.sex !== sex) return false;
+    if (roleFilter === 'TWG') return p.gfps_role?.includes('TWG') || p.gfps_role?.includes('Technical Working Group');
+    if (roleFilter === 'Exec') return p.gfps_role?.includes('Executive Committee');
+    if (roleFilter === 'Sec') return p.gfps_role === 'Secretariat';
+    return true;
+  }).length;
+
+  const buildStatRow = (label, sector, field, val) => {
+    const m = countProfile(sector, field, val, 'Male');
+    const f = countProfile(sector, field, val, 'Female');
+    return [label, m, f, m + f];
+  };
+
+  const buildLguRow = (label, field, val) => {
+    const m = countLgu(field, val, 'Male');
+    const f = countLgu(field, val, 'Female');
+    return [label, m, f, m + f];
+  };
+
+
   // --- EXPORT LOGIC ---
   const handleExportExcel = () => {
     let dataToExport = [];
@@ -162,10 +188,7 @@ export default function App() {
     else if (activeTab === 'OFW') { dataToExport = ofwData; filename = "OFW_Records"; }
     else if (activeTab === 'Trainings') { dataToExport = trainings; filename = "Training_Logs"; }
 
-    if (dataToExport.length === 0) {
-      alert("No data available to export.");
-      return;
-    }
+    if (dataToExport.length === 0) return alert("No data available to export.");
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -175,40 +198,23 @@ export default function App() {
 
   const handleExportWord = async (record) => {
     const formatKey = (key) => key.replace(/_/g, ' ').toUpperCase();
-
     const documentChildren = [
-      new Paragraph({ 
-        text: `${activeTab} Record Details`, 
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 400 }
-      }),
-      new Paragraph({
-        text: `Generated on: ${new Date().toLocaleDateString()}`,
-        spacing: { after: 400 }
-      })
+      new Paragraph({ text: `${activeTab} Record Details`, heading: HeadingLevel.HEADING_1, spacing: { after: 400 } }),
+      new Paragraph({ text: `Generated on: ${new Date().toLocaleDateString()}`, spacing: { after: 400 } })
     ];
 
     Object.entries(record).forEach(([key, value]) => {
       if (value !== null && value !== "" && key !== 'id' && key !== 'created_at') {
         documentChildren.push(
           new Paragraph({
-            children: [
-              new TextRun({ text: `${formatKey(key)}: `, bold: true }),
-              new TextRun({ text: String(value) }),
-            ],
+            children: [ new TextRun({ text: `${formatKey(key)}: `, bold: true }), new TextRun({ text: String(value) }) ],
             spacing: { after: 200 }
           })
         );
       }
     });
 
-    const doc = new Document({
-      sections: [{
-        properties: {},
-        children: documentChildren,
-      }],
-    });
-
+    const doc = new Document({ sections: [{ properties: {}, children: documentChildren }] });
     const blob = await Packer.toBlob(doc);
     const identifier = record.last_name || record.training_title || "Record";
     saveAs(blob, `${identifier}_${activeTab}_Profile.docx`);
@@ -228,27 +234,18 @@ export default function App() {
     if (activeTab === 'Trainings' || selectedForm === 'Trainings') table = 'capacity_trainings';
 
     if (modalMode === 'add') {
-      
-      // AUTO-GENERATE IDS BEFORE SAVING
       if (table === 'lgu_employees') {
         let nextNum = 1;
         if (lguData.length > 0) {
-          const maxId = Math.max(...lguData.map(item => {
-            const match = item.employee_id?.match(/EMP-(\d+)/);
-            return match ? parseInt(match[1], 10) : 0;
-          }));
+          const maxId = Math.max(...lguData.map(item => parseInt(item.employee_id?.match(/EMP-(\d+)/)?.[1] || 0)));
           nextNum = maxId + 1;
         }
         payload.employee_id = `EMP-${String(nextNum).padStart(3, '0')}`;
       }
-
       if (table === 'gfps_members') {
         let nextNum = 1;
         if (gfpsData.length > 0) {
-          const maxId = Math.max(...gfpsData.map(item => {
-            const match = item.gfps_id?.match(/GFPS-(\d+)/);
-            return match ? parseInt(match[1], 10) : 0;
-          }));
+          const maxId = Math.max(...gfpsData.map(item => parseInt(item.gfps_id?.match(/GFPS-(\d+)/)?.[1] || 0)));
           nextNum = maxId + 1;
         }
         payload.gfps_id = `GFPS-${String(nextNum).padStart(3, '0')}`;
@@ -326,8 +323,8 @@ export default function App() {
           <FormInput name="barangay" label="Barangay" defaultValue={data.barangay} />
           <FormInput name="contact_no" label="Contact No." defaultValue={data.contact_no} />
           <FormInput name="occupation" label="Occupation" defaultValue={data.occupation} />
-          <FormInput name="income_level" label="Income Level" defaultValue={data.income_level} />
-          <FormInput name="date_registered" label="Date Registered" type="date" defaultValue={data.date_registered} />
+          <FormSelect name="income_level" label="Income Level" options={["below 10k", "11k-20k", "21k-30k", "31k-40k", "41k-50k", "50k-100k", "100k above"]} defaultValue={data.income_level} />
+          <FormInput name="date_registered" label="Date Registered" type="date" defaultValue={data.date_registered || new Date().toISOString().split('T')[0]} />
         </div>
       </div>
       
@@ -342,13 +339,13 @@ export default function App() {
         />
 
         <div className="mt-4">
-          {selectedSector === "PWD" && <FormSelect name="disability_type" label="Disability Type" options={["Physical", "Visual", "Hearing", "Intellectual", "Psychosocial"]} defaultValue={data.disability_type} />}
+          {selectedSector === "PWD" && <FormSelect name="disability_type" label="Disability Type" options={["Physical Disability", "Visual Disability", "Hearing Disability", "Intellectual Disability", "Psychosocial Disability", "Multiple Disability"]} defaultValue={data.disability_type} />}
           {selectedSector === "Youth" && <FormSelect name="youth_status" label="Youth Status" options={["In School", "Out of School Youth", "Employed", "Unemployed", "Youth Leaders"]} defaultValue={data.youth_status} />}
           {selectedSector === "Solo Parent" && <FormSelect name="solo_parent_status" label="Solo Parent Status" options={["Widow/Widower", "Separated/Divorced", "Unmarried Parent", "Spouse Detained", "Spouse Overseas"]} defaultValue={data.solo_parent_status} />}
           {selectedSector === "Women" && <FormSelect name="women_status" label="Women Category" options={["Women of Reproductive Age (15-49)", "Pregnant Women", "Lactating Mothers", "Women Heads of Household", "Women Employed", "Women Entrepreneurs", "Women in Leadership Positions"]} defaultValue={data.women_status} />}
           {selectedSector === "TODA Member" && (
             <div className="bg-sky-50 p-6 rounded-2xl animate-in fade-in space-y-4">
-              <FormSelect name="toda_role" label="TODA Role" options={["Tricycle Driver", "Operator", "Driver-Operator"]} defaultValue={data.toda_role} />
+              <FormSelect name="toda_role" label="TODA Role" options={["Tricycle Drivers", "Operators", "Driver-Operator"]} defaultValue={data.toda_role} />
               <FormSelect name="toda_safety" label="Attended Road Safety Training?" options={["Yes", "No"]} defaultValue={data.toda_safety} />
               <FormSelect name="toda_livelihood" label="Availed Livelihood Program?" options={["Yes", "No"]} defaultValue={data.toda_livelihood} />
             </div>
@@ -362,15 +359,12 @@ export default function App() {
 
   const LGUFormFields = ({ data = {} }) => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      
-      {/* Display ID securely if editing, otherwise hidden for auto-generation */}
       {data.employee_id && (
         <div className="space-y-1.5">
           <label className="text-sm font-bold text-slate-600 ml-1">Employee ID (Auto-Generated)</label>
           <input disabled value={data.employee_id} className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-medium cursor-not-allowed" />
         </div>
       )}
-
       <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
       <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
       <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
@@ -388,15 +382,12 @@ export default function App() {
 
   const GFPSFormFields = ({ data = {} }) => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-      {/* Display ID securely if editing, otherwise hidden for auto-generation */}
       {data.gfps_id && (
         <div className="space-y-1.5">
           <label className="text-sm font-bold text-slate-600 ml-1">GFPS ID (Auto-Generated)</label>
           <input disabled value={data.gfps_id} className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-medium cursor-not-allowed" />
         </div>
       )}
-
       <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
       <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
       <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
@@ -446,20 +437,33 @@ export default function App() {
       <FormInput name="training_title" label="Training Title" placeholder="e.g. Gender Sensitivity Training" defaultValue={data.training_title} />
       <FormSelect name="office" label="Conducting Office" options={["Mayor's Office", "Municipal/City Planning Office", "Engineering Office", "Agriculture Office", "Social Welfare Office", "Health Office", "Treasurer's Office", "Assessor's Office", "Administrative Office"]} defaultValue={data.office} />
       <div className="grid grid-cols-2 gap-6">
-        <FormInput name="participants_male" label="Male Participants" type="number" defaultValue={data.participants_male} />
-        <FormInput name="participants_female" label="Female Participants" type="number" defaultValue={data.participants_female} />
+        <FormInput name="participants_male" label="Total Male Participants" type="number" defaultValue={data.participants_male} />
+        <FormInput name="participants_female" label="Total Female Participants" type="number" defaultValue={data.participants_female} />
       </div>
       <FormInput name="date_conducted" label="Date Conducted" type="date" defaultValue={data.date_conducted} />
+      
+      {/* NEW FIELD FOR PARTICIPANT NAMES */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-bold text-slate-600 ml-1">List of Participant Names</label>
+        <p className="text-xs text-slate-400 ml-1 mb-2">Type or paste the names of the attendees here (separated by commas or new lines).</p>
+        <textarea 
+          name="participant_names" 
+          rows="5"
+          placeholder="Juan Dela Cruz, Maria Santos..."
+          defaultValue={data.participant_names}
+          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-700 font-medium transition-all resize-y"
+        />
+      </div>
     </div>
   );
 
   // --- RENDERING DETAIL PANELS FOR EXPANDED ROWS ---
   const renderDetails = (tab, rawData) => {
     if (!rawData) return <p>No detailed data available.</p>;
-    const DetailItem = ({ label, value }) => (
-      <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+    const DetailItem = ({ label, value, fullWidth }) => (
+      <div className={`bg-white p-3 rounded-xl border border-slate-100 shadow-sm ${fullWidth ? 'col-span-2 md:col-span-4' : ''}`}>
         <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</span>
-        <span className="block text-sm font-medium text-slate-800">{value || "N/A"}</span>
+        <span className="block text-sm font-medium text-slate-800 whitespace-pre-wrap">{value || "N/A"}</span>
       </div>
     );
 
@@ -475,7 +479,7 @@ export default function App() {
         <DetailItem label="Income Level" value={rawData.income_level} />
         <DetailItem label="Date Registered" value={rawData.date_registered} />
         <DetailItem label="Sector" value={rawData.sector} />
-        <DetailItem label="Specific Detail" value={rawData.disability_type || rawData.youth_status || rawData.women_status || rawData.detail} />
+        <DetailItem label="Specific Detail" value={rawData.disability_type || rawData.youth_status || rawData.women_status || rawData.toda_role || rawData.farmer_status || rawData.fisherfolk_status || "N/A"} />
       </div>
     );
 
@@ -513,9 +517,12 @@ export default function App() {
         <DetailItem label="Training Title" value={rawData.training_title} />
         <DetailItem label="Conducting Office" value={rawData.office} />
         <DetailItem label="Date Conducted" value={rawData.date_conducted} />
+        <DetailItem label="Total Participants" value={Number(rawData.participants_male || 0) + Number(rawData.participants_female || 0)} />
         <DetailItem label="Male Participants" value={rawData.participants_male} />
         <DetailItem label="Female Participants" value={rawData.participants_female} />
-        <DetailItem label="Total Participants" value={Number(rawData.participants_male || 0) + Number(rawData.participants_female || 0)} />
+        
+        {/* NEW: Displaying the names full width */}
+        <DetailItem label="Participant Names" value={rawData.participant_names} fullWidth={true} />
       </div>
     );
 
@@ -534,6 +541,60 @@ export default function App() {
     return null;
   };
 
+  // --- DASHBOARD TABLE DATA PREPARATION ---
+  const pwdData = ['Physical Disability', 'Visual Disability', 'Hearing Disability', 'Intellectual Disability', 'Psychosocial Disability', 'Multiple Disability']
+    .map(type => buildStatRow(type, 'PWD', 'disability_type', type));
+  
+  const youthData = ['In School', 'Out of School Youth', 'Employed', 'Unemployed', 'Youth Leaders']
+    .map(type => buildStatRow(type, 'Youth', 'youth_status', type));
+
+  const soloData = ['Widow/Widower', 'Separated/Divorced', 'Unmarried Parent', 'Spouse Detained', 'Spouse Overseas']
+    .map(type => buildStatRow(type, 'Solo Parent', 'solo_parent_status', type));
+
+  const womenData = [
+    ['Women of Reproductive Age (15-49)', countProfile('Women', 'women_status', 'Women of Reproductive Age (15-49)')],
+    ['Pregnant Women', countProfile('Women', 'women_status', 'Pregnant Women')],
+    ['Lactating Mothers', countProfile('Women', 'women_status', 'Lactating Mothers')],
+    ['Women Heads of Household', countProfile('Women', 'women_status', 'Women Heads of Household')],
+    ['Women Employed', countProfile('Women', 'women_status', 'Women Employed')],
+    ['Women Entrepreneurs', countProfile('Women', 'women_status', 'Women Entrepreneurs')],
+    ['Women in Leadership Positions', countProfile('Women', 'women_status', 'Women in Leadership Positions')]
+  ];
+
+  const seniorData = [
+    ['60-69', countAge('Senior Citizen', 60, 69, 'Male'), countAge('Senior Citizen', 60, 69, 'Female')],
+    ['70-79', countAge('Senior Citizen', 70, 79, 'Male'), countAge('Senior Citizen', 70, 79, 'Female')],
+    ['80-89', countAge('Senior Citizen', 80, 89, 'Male'), countAge('Senior Citizen', 80, 89, 'Female')],
+    ['90+', countAge('Senior Citizen', 90, 999, 'Male'), countAge('Senior Citizen', 90, 999, 'Female')]
+  ].map(row => [row[0], row[1], row[2], row[1]+row[2]]);
+
+  const todaData = [
+    buildStatRow('Tricycle Drivers', 'TODA Member', 'toda_role', 'Tricycle Drivers'),
+    buildStatRow('Operators', 'TODA Member', 'toda_role', 'Operators'),
+    buildStatRow('Driver-Operator', 'TODA Member', 'toda_role', 'Driver-Operator')
+  ];
+
+  const gfpsSumData = [
+    ['Executive Committee', countGfps('Exec', 'Male'), countGfps('Exec', 'Female')],
+    ['Technical Working Group', countGfps('TWG', 'Male'), countGfps('TWG', 'Female')],
+    ['Secretariat', countGfps('Sec', 'Male'), countGfps('Sec', 'Female')]
+  ].map(row => [row[0], row[1], row[2], row[1]+row[2]]);
+
+  const lguEmpData = ['Permanent', 'Contractual', 'Job Order', 'Casual'].map(t => buildLguRow(`${t} Employees`, 'employment_status', t));
+  const lguSgData = ['SG 1-10', 'SG 11-15', 'SG 16-20', 'SG 21-24', 'SG 25+'].map(t => buildLguRow(t, 'salary_grade', t));
+  const lguLeadData = ['Department Heads', 'Division Chiefs', 'Supervisors'].map(t => buildLguRow(t, 'is_leadership_position', t));
+
+  // Dynamic LGU Dept Calculation
+  const depts = [...new Set(lguData.map(p => p.department).filter(Boolean))];
+  const lguDeptData = depts.map(d => buildLguRow(d, 'department', d));
+
+  const calcTotal = (arr) => [
+    "Total", 
+    arr.reduce((sum, row) => sum + row[1], 0), 
+    arr.reduce((sum, row) => sum + row[2], 0), 
+    arr.reduce((sum, row) => sum + row[3], 0)
+  ];
+
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden selection:bg-sky-100">
       
@@ -545,7 +606,7 @@ export default function App() {
       <aside className={`fixed lg:static inset-y-0 left-0 z-30 w-72 bg-white border-r border-slate-100 transform transition-transform duration-300 ease-in-out flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-8 flex items-center justify-center border-b border-slate-50">
           <div className="text-center">
-            <h1 className="text-2xl font-black text-sky-600 tracking-tight">Master Registry</h1>
+            <h1 className="text-2xl font-black text-sky-600 tracking-tight">GAD Registry</h1>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">{userRole === 'admin' ? 'Administrator' : 'Data Entry'}</p>
           </div>
         </div>
@@ -591,7 +652,7 @@ export default function App() {
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         
         <header className="lg:hidden h-16 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center px-4 justify-between z-10 sticky top-0">
-          <h1 className="font-bold text-slate-800">Master Registry</h1>
+          <h1 className="font-bold text-slate-800">GAD Registry</h1>
           <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg">
             <Menu />
           </button>
@@ -633,13 +694,60 @@ export default function App() {
                   )}
                 </div>
 
+                {/* --- THE MASTER DASHBOARD REBUILT --- */}
                 {activeTab === 'Dashboard' && (
-                   <div className="bg-white rounded-3xl p-12 shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center">
-                    <div className="w-20 h-20 bg-sky-50 text-sky-500 rounded-full flex items-center justify-center mb-4">
-                      <LayoutDashboard size={32} />
+                  <div className="space-y-10 animate-in fade-in">
+                    <div>
+                      <h3 className="text-2xl font-black text-sky-600 border-b-2 border-sky-100 pb-3 mb-6">Part I: Beneficiary Sector Summaries (SDD)</h3>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        
+                        <DashboardTable title="2.1 PWD Sector" columns={["Indicator", "Male", "Female", "Total"]} data={pwdData} totals={calcTotal(pwdData)} />
+                        <DashboardTable title="2.2 Youth Sector (Age 15-30)" columns={["Category", "Male", "Female", "Total"]} data={youthData} totals={calcTotal(youthData)} />
+                        <DashboardTable title="2.3 Solo Parent Sector" columns={["Type of Solo Parent", "Male", "Female", "Total"]} data={soloData} totals={calcTotal(soloData)} />
+                        
+                        <DashboardTable 
+                          title="2.4 Women Sector" 
+                          columns={["Indicator", "Count"]} 
+                          data={womenData} 
+                          totals={["Total Women Registered", womenData.reduce((s, row) => s + row[1], 0)]} 
+                        />
+                        
+                        <DashboardTable title="2.5 Senior Citizen Sector" columns={["Age Group", "Male", "Female", "Total"]} data={seniorData} totals={calcTotal(seniorData)} />
+                        <DashboardTable title="2.6 TODA Members" columns={["Category", "Male", "Female", "Total"]} data={todaData} totals={calcTotal(todaData)} />
+
+                      </div>
                     </div>
-                    <h3 className="text-xl font-bold text-slate-800">Dashboard is active</h3>
-                    <p className="text-slate-500 mt-2 max-w-md">Navigate to the other tabs to view, export, and manage your data.</p>
+
+                    <div>
+                      <h3 className="text-2xl font-black text-sky-600 border-b-2 border-sky-100 pb-3 mb-6 mt-12">Part II: LGU & GFPS Internal Records</h3>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                        <DashboardTable title="GFPS Members Summary" columns={["Category", "Male", "Female", "Total"]} data={gfpsSumData} totals={calcTotal(gfpsSumData)} />
+                        <DashboardTable title="LGU Employment Status" columns={["Indicator", "Male", "Female", "Total"]} data={lguEmpData} totals={calcTotal(lguEmpData)} />
+                        <DashboardTable title="LGU Employees by Salary Grade" columns={["Salary Grade", "Male", "Female", "Total"]} data={lguSgData} totals={calcTotal(lguSgData)} />
+                        <DashboardTable title="LGU Leadership Positions" columns={["Position Category", "Male", "Female", "Total"]} data={lguLeadData} totals={calcTotal(lguLeadData)} />
+
+                        <div className="lg:col-span-2">
+                          <DashboardTable title="LGU Employees by Office/Department" columns={["Office/Department", "Male", "Female", "Total"]} data={lguDeptData} totals={calcTotal(lguDeptData)} />
+                        </div>
+
+                        <div className="lg:col-span-2">
+                          <DashboardTable 
+                            title="Gender Capacity Building Monitoring"
+                            columns={["Training Title", "Male", "Female", "Total", "Office/Dept", "Date Conducted"]}
+                            data={trainings.map(t => [
+                              t.training_title, 
+                              t.participants_male || 0, 
+                              t.participants_female || 0, 
+                              Number(t.participants_male || 0) + Number(t.participants_female || 0), 
+                              t.office, 
+                              t.date_conducted
+                            ])}
+                          />
+                        </div>
+
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -746,6 +854,7 @@ export default function App() {
                 <div>
                   <h2 className="text-3xl font-black text-slate-800 tracking-tight">Submit New Data</h2>
                   <p className="text-slate-500 font-medium mt-1">Select a form type below to enter new records into the database.</p>
+                  <p className="text-xs text-slate-400 ml-1 mb-2">GAD gave me you</p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 bg-slate-100 p-1 rounded-xl mb-6">
@@ -827,7 +936,7 @@ export default function App() {
             </div>
 
             <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
-              <button onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors">
+              <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors">
                 Cancel
               </button>
               <button type="submit" form="modalForm" className="px-6 py-2.5 bg-sky-500 text-white font-bold rounded-xl hover:bg-sky-600 shadow-md shadow-sky-200 transition-colors">
@@ -865,7 +974,6 @@ const SearchBar = ({ placeholder }) => (
   </div>
 );
 
-// --- UPDATED DATA TABLE WITH EXPORT WORD BUTTON ---
 const DataTable = ({ columns, data, onEdit, onDelete, onExportWord, renderDetails }) => {
   const [expandedId, setExpandedId] = useState(null);
   const toggleRow = (id) => setExpandedId(expandedId === id ? null : id);
@@ -890,41 +998,23 @@ const DataTable = ({ columns, data, onEdit, onDelete, onExportWord, renderDetail
                   <td className="p-6 text-slate-600 font-medium text-sm">{row.col3}</td>
                   <td className="p-6">
                     <div className="flex justify-center items-center gap-2">
-                      {/* Word Export Button */}
-                      <button 
-                        onClick={() => onExportWord && onExportWord(row.raw)} 
-                        className="p-2.5 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors" 
-                        title="Export to Word"
-                      >
+                      <button onClick={() => onExportWord && onExportWord(row.raw)} className="p-2.5 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors" title="Export to Word">
                         <FileText size={18} />
                       </button>
-                      <button 
-                        onClick={() => onEdit && onEdit(row.raw)} 
-                        className="p-2.5 text-sky-600 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors" 
-                        title="Edit"
-                      >
+                      <button onClick={() => onEdit && onEdit(row.raw)} className="p-2.5 text-sky-600 bg-sky-50 hover:bg-sky-100 rounded-xl transition-colors" title="Edit">
                         <Edit size={18} />
                       </button>
-                      <button 
-                        onClick={() => onDelete && onDelete(row.id)}
-                        className="p-2.5 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors" 
-                        title="Delete"
-                      >
+                      <button onClick={() => onDelete && onDelete(row.id)} className="p-2.5 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors" title="Delete">
                         <Trash2 size={18} />
                       </button>
                       {renderDetails && (
-                        <button 
-                          onClick={() => toggleRow(row.id)}
-                          className={`p-2.5 rounded-xl transition-all ${expandedId === row.id ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                          title="View Details"
-                        >
+                        <button onClick={() => toggleRow(row.id)} className={`p-2.5 rounded-xl transition-all ${expandedId === row.id ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`} title="View Details">
                           {expandedId === row.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                         </button>
                       )}
                     </div>
                   </td>
                 </tr>
-                {/* Expanded Row Content */}
                 {expandedId === row.id && renderDetails && (
                   <tr className="bg-slate-50/50 border-b border-slate-100">
                     <td colSpan={columns.length} className="p-6 border-l-4 border-sky-400">
@@ -959,5 +1049,47 @@ const FormSelect = ({ name, label, options, onChange, defaultValue }) => (
       <option value="" disabled>Select an option...</option>
       {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
     </select>
+  </div>
+);
+
+const DashboardTable = ({ title, columns, data, totals }) => (
+  <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col h-full hover:shadow-md transition-shadow">
+    <h3 className="text-lg font-bold text-slate-800 border-b-2 border-sky-100 pb-3 mb-4">{title}</h3>
+    <div className="overflow-x-auto flex-1">
+      <table className="w-full text-left border-collapse text-sm">
+        <thead>
+          <tr className="bg-slate-50 text-slate-500 uppercase tracking-wider text-xs">
+            {columns.map((col, i) => (
+              <th key={i} className={`p-3 font-bold border-b border-slate-100 ${i > 0 && col !== 'Office/Dept' && col !== 'Date Conducted' ? 'text-center' : ''}`}>
+                {col}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i} className="border-b border-slate-50 hover:bg-sky-50/50 transition-colors">
+              {row.map((cell, j) => (
+                <td key={j} className={`p-3 text-slate-600 ${j === 0 ? 'font-bold text-slate-700' : 'font-medium'} ${j > 0 && typeof cell === 'number' ? 'text-center' : ''}`}>
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+          {data.length === 0 && <tr><td colSpan={columns.length} className="p-4 text-center text-slate-400 italic">No data available.</td></tr>}
+        </tbody>
+        {totals && (
+          <tfoot>
+            <tr className="bg-sky-50/50 text-sky-800 font-black border-t-2 border-sky-200">
+              {totals.map((total, i) => (
+                <td key={i} className={`p-3 ${i > 0 ? 'text-center text-lg' : ''}`}>
+                  {total}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
   </div>
 );
