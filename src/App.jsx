@@ -733,12 +733,12 @@ export default function App() {
                     <div>
                       <h3 className="text-2xl font-black text-sky-600 border-b-2 border-sky-100 pb-3 mb-6">Part I: Beneficiary Sector Summaries (SDD)</h3>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <DashboardTable title="2.1 PWD Sector" columns={["Indicator", "Male", "Female", "Total"]} data={pwdData} totals={calcTotal(pwdData)} />
-                        <DashboardTable title="2.2 Youth Sector (Age 15-30)" columns={["Category", "Male", "Female", "Total"]} data={youthData} totals={calcTotal(youthData)} />
-                        <DashboardTable title="2.3 Solo Parent Sector" columns={["Type of Solo Parent", "Male", "Female", "Total"]} data={soloData} totals={calcTotal(soloData)} />
-                        <DashboardTable title="2.4 Women Sector" columns={["Indicator", "Count"]} data={womenData} totals={["Total Women Registered", womenData.reduce((s, row) => s + row[1], 0)]} />
-                        <DashboardTable title="2.5 Senior Citizen Sector" columns={["Age Group", "Male", "Female", "Total"]} data={seniorData} totals={calcTotal(seniorData)} />
-                        <DashboardTable title="2.6 TODA Members" columns={["Category", "Male", "Female", "Total"]} data={todaData} totals={calcTotal(todaData)} />
+                        <DashboardTable title="1.1 PWD Sector" columns={["Indicator", "Male", "Female", "Total"]} data={pwdData} totals={calcTotal(pwdData)} />
+                        <DashboardTable title="1.2 Youth Sector (Age 15-30)" columns={["Category", "Male", "Female", "Total"]} data={youthData} totals={calcTotal(youthData)} />
+                        <DashboardTable title="1.3 Solo Parent Sector" columns={["Type of Solo Parent", "Male", "Female", "Total"]} data={soloData} totals={calcTotal(soloData)} />
+                        <DashboardTable title="1.4 Women Sector" columns={["Indicator", "Count"]} data={womenData} totals={["Total Women Registered", womenData.reduce((s, row) => s + row[1], 0)]} />
+                        <DashboardTable title="1.5 Senior Citizen Sector" columns={["Age Group", "Male", "Female", "Total"]} data={seniorData} totals={calcTotal(seniorData)} />
+                        <DashboardTable title="1.6 TODA Members" columns={["Category", "Male", "Female", "Total"]} data={todaData} totals={calcTotal(todaData)} />
                       </div>
                     </div>
                     <div>
