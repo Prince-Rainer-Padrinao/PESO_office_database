@@ -98,6 +98,7 @@ export default function App() {
   const [adminList, setAdminList] = useState([]); 
   const [sectorOptions, setSectorOptions] = useState([]); 
   const [statusOptions, setStatusOptions] = useState([]);
+  const [disabilityOptions, setDisabilityOptions] = useState([]); // <-- NEW STATE FOR PWD DISABILITIES
   
   const [loading, setLoading] = useState(false);
 
@@ -130,13 +131,19 @@ export default function App() {
     if (data) setStatusOptions(data);
   };
 
+  // --- FETCH DYNAMIC DISABILITIES ---
+  const fetchDisabilities = async () => {
+    const { data } = await supabase.from('disability_categories').select('*').order('name', { ascending: true });
+    if (data) setDisabilityOptions(data);
+  };
+
   const fetchData = async () => {
     setLoading(true);
     let table = '';
     if (activeTab === 'Profiles' || activeTab === 'Dashboard') table = 'profiles'; 
     if (activeTab === 'LGU' || activeTab === 'Dashboard') table = 'lgu_employees'; 
     if (activeTab === 'GFPS' || activeTab === 'Dashboard') table = 'gfps_members'; 
-    if (activeTab === 'OFW') table = 'ofw_profiles';
+    if (activeTab === 'OFW' || activeTab === 'Dashboard') table = 'ofw_profiles'; // Update OFW for Dashboard
     if (activeTab === 'Trainings' || activeTab === 'Dashboard') table = 'capacity_trainings'; 
 
     if (activeTab === 'Admins') fetchAdmins(); 
@@ -145,10 +152,12 @@ export default function App() {
       const pRes = await supabase.from('profiles').select('*');
       const lRes = await supabase.from('lgu_employees').select('*');
       const gRes = await supabase.from('gfps_members').select('*');
+      const oRes = await supabase.from('ofw_profiles').select('*');
       const tRes = await supabase.from('capacity_trainings').select('*').order('date_conducted', { ascending: false });
       if (pRes.data) setProfiles(pRes.data);
       if (lRes.data) setLguData(lRes.data);
       if (gRes.data) setGfpsData(gRes.data);
+      if (oRes.data) setOfwData(oRes.data);
       if (tRes.data) setTrainings(tRes.data);
     } else if (table) {
       const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false });
@@ -166,6 +175,7 @@ export default function App() {
   useEffect(() => {
     fetchSectors();
     fetchStatuses();
+    fetchDisabilities();
 
     const verifyAdmin = async (session) => {
       if (!session) return;
@@ -262,6 +272,28 @@ export default function App() {
     }
   };
 
+  // --- NEW: MANAGE DISABILITIES ---
+  const handleAddDisability = async (e) => {
+    e.preventDefault();
+    const name = e.target.new_disability.value.trim();
+    if (!name) return alert("Please enter a disability type.");
+    const { error } = await supabase.from('disability_categories').insert([{ name }]);
+    if (error) {
+      if (error.code === '23505') alert("This category already exists.");
+      else alert("Error adding category: " + error.message);
+    } else {
+      e.target.reset();
+      fetchDisabilities();
+    }
+  };
+
+  const handleDeleteDisability = async (id, name) => {
+    if (window.confirm(`Are you sure you want to delete the "${name}" category?`)) {
+      const { error } = await supabase.from('disability_categories').delete().eq('id', id);
+      if (!error) fetchDisabilities();
+    }
+  };
+
   const getProcessedData = (data) => {
     let result = [...data];
 
@@ -299,9 +331,11 @@ export default function App() {
   const countAge = (sector, min, max, sex) => profiles.filter(p => { const age = parseInt(p.age) || 0; return p.sector === sector && age >= min && age <= max && (sex ? (p.sex === sex || p.sex === (sex === 'Male' ? 'M' : 'F')) : true); }).length;
   const countLgu = (field, val, sex) => lguData.filter(p => (field ? p[field] === val : true) && (sex ? p.sex === sex : true)).length;
   const countGfps = (roleFilter, sex) => gfpsData.filter(p => { if (sex && p.sex !== sex) return false; if (roleFilter === 'TWG') return p.gfps_role?.includes('TWG') || p.gfps_role?.includes('Technical Working Group'); if (roleFilter === 'Exec') return p.gfps_role?.includes('Executive Committee'); if (roleFilter === 'Sec') return p.gfps_role === 'Secretariat'; return true; }).length;
+  const countOfw = (field, val, sex) => ofwData.filter(o => (field ? o[field] === val : true) && (sex ? (o.sex === sex || o.sex === (sex === 'Male' ? 'M' : 'F')) : true)).length;
 
   const buildStatRow = (label, sector, field, val) => { const m = countProfile(sector, field, val, 'Male'); const f = countProfile(sector, field, val, 'Female'); return [label, m, f, m + f]; };
   const buildLguRow = (label, field, val) => { const m = countLgu(field, val, 'Male'); const f = countLgu(field, val, 'Female'); return [label, m, f, m + f]; };
+  const buildOfwRow = (label, field, val) => { const m = countOfw(field, val, 'Male'); const f = countOfw(field, val, 'Female'); return [label, m, f, m + f]; };
 
   const handleExportExcel = () => {
     let dataToExport = [];
@@ -408,18 +442,37 @@ export default function App() {
     return null;
   };
 
-  const pwdData = ['Physical Disability', 'Visual Disability', 'Hearing Disability', 'Intellectual Disability', 'Psychosocial Disability', 'Multiple Disability'].map(type => buildStatRow(type, 'PWD', 'disability_type', type));
+  // --- DASHBOARD DATA PREPARATION ---
+  const pwdData = disabilityOptions.map(type => buildStatRow(type.name, 'PWD', 'disability_type', type.name));
   const youthData = ['In School', 'Out of School Youth', 'Employed', 'Unemployed', 'Youth Leaders'].map(type => buildStatRow(type, 'Youth', 'youth_status', type));
   const soloData = ['Widow/Widower', 'Separated/Divorced', 'Unmarried Parent', 'Spouse Detained', 'Spouse Overseas'].map(type => buildStatRow(type, 'Solo Parent', 'solo_parent_status', type));
   const womenData = [ ['Women of Reproductive Age (15-49)', countProfile('Women', 'women_status', 'Women of Reproductive Age (15-49)')], ['Pregnant Women', countProfile('Women', 'women_status', 'Pregnant Women')], ['Lactating Mothers', countProfile('Women', 'women_status', 'Lactating Mothers')], ['Women Heads of Household', countProfile('Women', 'women_status', 'Women Heads of Household')], ['Women Employed', countProfile('Women', 'women_status', 'Women Employed')], ['Women Entrepreneurs', countProfile('Women', 'women_status', 'Women Entrepreneurs')], ['Women in Leadership Positions', countProfile('Women', 'women_status', 'Women in Leadership Positions')] ];
   const seniorData = [ ['60-69', countAge('Senior Citizen', 60, 69, 'Male'), countAge('Senior Citizen', 60, 69, 'Female')], ['70-79', countAge('Senior Citizen', 70, 79, 'Male'), countAge('Senior Citizen', 70, 79, 'Female')], ['80-89', countAge('Senior Citizen', 80, 89, 'Male'), countAge('Senior Citizen', 80, 89, 'Female')], ['90+', countAge('Senior Citizen', 90, 999, 'Male'), countAge('Senior Citizen', 90, 999, 'Female')] ].map(row => [row[0], row[1], row[2], row[1]+row[2]]);
   const todaData = [ buildStatRow('Tricycle Drivers', 'TODA Member', 'toda_role', 'Tricycle Drivers'), buildStatRow('Operators', 'TODA Member', 'toda_role', 'Operators'), buildStatRow('Driver-Operator', 'TODA Member', 'toda_role', 'Driver-Operator') ];
+  
+  // DYNAMIC SECTOR ENGINE
+  const standardSectors = ["PWD", "Youth", "Solo Parent", "Women", "Senior Citizen", "TODA Member"];
+  const dynamicSectorData = sectorOptions
+    .filter(s => !standardSectors.includes(s.name))
+    .map(s => {
+        const row = buildStatRow('All Beneficiaries', s.name, null, null);
+        return { name: s.name, data: [row], totals: ["Total", row[1], row[2], row[3]] };
+    });
+
+  // OFW DASHBOARD DATA (PART 2)
+  const ofwStatusData = ['Active', 'Vacationing in PH', 'End of Contract', 'Repatriated'].map(status => buildOfwRow(status, 'current_status', status));
+  const ofwTypeData = ['Land-based', 'Sea-based'].map(type => buildOfwRow(type, 'employment_type', type));
+  const uniqueCountries = [...new Set(ofwData.map(o => o.country_employment).filter(Boolean))];
+  const ofwCountryData = uniqueCountries.map(c => buildOfwRow(c, 'country_employment', c));
+
+  // INTERNAL RECORDS DATA (PART 3)
   const gfpsSumData = [ ['Executive Committee', countGfps('Exec', 'Male'), countGfps('Exec', 'Female')], ['Technical Working Group', countGfps('TWG', 'Male'), countGfps('TWG', 'Female')], ['Secretariat', countGfps('Sec', 'Male'), countGfps('Sec', 'Female')] ].map(row => [row[0], row[1], row[2], row[1]+row[2]]);
   const lguEmpData = ['Permanent', 'Contractual', 'Job Order', 'Casual'].map(t => buildLguRow(`${t} Employees`, 'employment_status', t));
   const lguSgData = ['SG 1-10', 'SG 11-15', 'SG 16-20', 'SG 21-24', 'SG 25+'].map(t => buildLguRow(t, 'salary_grade', t));
   const lguLeadData = ['Department Heads', 'Division Chiefs', 'Supervisors'].map(t => buildLguRow(t, 'is_leadership_position', t));
   const depts = [...new Set(lguData.map(p => p.department).filter(Boolean))];
   const lguDeptData = depts.map(d => buildLguRow(d, 'department', d));
+
   const calcTotal = (arr) => [ "Total", arr.reduce((sum, row) => sum + row[1], 0), arr.reduce((sum, row) => sum + row[2], 0), arr.reduce((sum, row) => sum + row[3], 0) ];
 
   return (
@@ -577,6 +630,32 @@ export default function App() {
                     </div>
 
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+                      <h3 className="text-xl font-black text-sky-600 mb-2">Manage PWD Disability Types</h3>
+                      <p className="text-slate-500 font-medium mb-8">Add or remove specific disability categories available when a user selects the "PWD" sector.</p>
+                      
+                      <form onSubmit={handleAddDisability} className="flex gap-4 items-end mb-10 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                        <div className="flex-1 space-y-1.5">
+                          <label className="text-sm font-bold text-slate-600 ml-1">Add Disability Type</label>
+                          <input autoComplete="off" name="new_disability" type="text" required placeholder="e.g. Learning Disability" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium" />
+                        </div>
+                        <button type="submit" className="px-6 py-3 bg-fuchsia-500 text-white font-bold rounded-xl hover:bg-fuchsia-600 transition-all flex items-center gap-2 shadow-sm">
+                          <PlusCircle size={18} /> Add Disability
+                        </button>
+                      </form>
+
+                      <div className="flex flex-wrap gap-3">
+                        {disabilityOptions.map(disability => (
+                          <div key={disability.id} className="flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-xl text-slate-700 font-bold text-sm shadow-sm border border-slate-200">
+                            {disability.name}
+                            <button onClick={() => handleDeleteDisability(disability.id, disability.name)} className="text-slate-400 hover:text-rose-500 transition-colors ml-2">
+                              <X size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
                       <h3 className="text-xl font-black text-sky-600 mb-2">Manage Record Statuses</h3>
                       <p className="text-slate-500 font-medium mb-8">Add or remove options for the "Status" dropdown found in the GAD and OFW forms.</p>
                       
@@ -616,10 +695,33 @@ export default function App() {
                         <DashboardTable title="1.4 Women Sector" columns={["Indicator", "Count"]} data={womenData} totals={["Total Women Registered", womenData.reduce((s, row) => s + row[1], 0)]} />
                         <DashboardTable title="1.5 Senior Citizen Sector" columns={["Age Group", "Male", "Female", "Total"]} data={seniorData} totals={calcTotal(seniorData)} />
                         <DashboardTable title="1.6 TODA Members" columns={["Category", "Male", "Female", "Total"]} data={todaData} totals={calcTotal(todaData)} />
+                        
+                        {/* DYNAMIC SECTOR TABLES INJECTED HERE */}
+                        {dynamicSectorData.map((ds, idx) => (
+                          <DashboardTable 
+                            key={ds.name} 
+                            title={`1.${7 + idx} ${ds.name} Sector`} 
+                            columns={["Category", "Male", "Female", "Total"]} 
+                            data={ds.data} 
+                            totals={ds.totals} 
+                          />
+                        ))}
                       </div>
                     </div>
+                    
                     <div>
-                      <h3 className="text-2xl font-black text-sky-600 border-b-2 border-sky-100 pb-3 mb-6 mt-12">Part II: LGU & GFPS Internal Records</h3>
+                      <h3 className="text-2xl font-black text-sky-600 border-b-2 border-sky-100 pb-3 mb-6 mt-12">Part II: Overseas Filipino Workers (OFW)</h3>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <DashboardTable title="OFW Deployment Status" columns={["Status", "Male", "Female", "Total"]} data={ofwStatusData} totals={calcTotal(ofwStatusData)} />
+                        <DashboardTable title="OFW Employment Type" columns={["Type", "Male", "Female", "Total"]} data={ofwTypeData} totals={calcTotal(ofwTypeData)} />
+                        <div className="lg:col-span-2">
+                          <DashboardTable title="OFW Countries of Deployment" columns={["Country", "Male", "Female", "Total"]} data={ofwCountryData} totals={calcTotal(ofwCountryData)} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-2xl font-black text-sky-600 border-b-2 border-sky-100 pb-3 mb-6 mt-12">Part III: LGU & GFPS Internal Records</h3>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <DashboardTable title="GFPS Members Summary" columns={["Category", "Male", "Female", "Total"]} data={gfpsSumData} totals={calcTotal(gfpsSumData)} />
                         <DashboardTable title="LGU Employment Status" columns={["Indicator", "Male", "Female", "Total"]} data={lguEmpData} totals={calcTotal(lguEmpData)} />
@@ -634,6 +736,7 @@ export default function App() {
                   </div>
                 )}
 
+                {/* TABLES WITH SEARCH AND SORT INJECTED */}
                 {activeTab === 'Profiles' && ( 
                   <div className="space-y-6">
                     <SearchBar placeholder="Type to search profiles..." searchQuery={searchQuery} setSearchQuery={setSearchQuery} sortOption={sortOption} setSortOption={setSortOption} showStatusSort={true} />
@@ -686,7 +789,7 @@ export default function App() {
                     {selectedForm === 'Profiles' && "Register GAD Beneficiary"} {selectedForm === 'OFW' && "Register OFW Profile"} {selectedForm === 'LGU' && "Register LGU Employee"} {selectedForm === 'GFPS' && "Register GFPS Member"} {selectedForm === 'Trainings' && "Log New Training"}
                   </h3>
                   <form onSubmit={handleSave} className="space-y-6">
-                    {selectedForm === 'Profiles' && <ProfileFormFields sectorOptions={sectorOptions} statusOptions={statusOptions} selectedSector={selectedSector} setSelectedSector={setSelectedSector} />} 
+                    {selectedForm === 'Profiles' && <ProfileFormFields sectorOptions={sectorOptions} statusOptions={statusOptions} disabilityOptions={disabilityOptions} selectedSector={selectedSector} setSelectedSector={setSelectedSector} />} 
                     {selectedForm === 'OFW' && <OFWFormFields statusOptions={statusOptions} />} 
                     {selectedForm === 'LGU' && <LGUFormFields />} 
                     {selectedForm === 'GFPS' && <GFPSFormFields />} 
@@ -716,7 +819,7 @@ export default function App() {
             </div>
             <div className="p-8 overflow-y-auto custom-scrollbar">
               <form id="modalForm" onSubmit={handleSave} className="space-y-6">
-                {selectedForm === 'Profiles' && <ProfileFormFields data={editingData} sectorOptions={sectorOptions} statusOptions={statusOptions} selectedSector={selectedSector} setSelectedSector={setSelectedSector} />} 
+                {selectedForm === 'Profiles' && <ProfileFormFields data={editingData} sectorOptions={sectorOptions} statusOptions={statusOptions} disabilityOptions={disabilityOptions} selectedSector={selectedSector} setSelectedSector={setSelectedSector} />} 
                 {selectedForm === 'OFW' && <OFWFormFields data={editingData} statusOptions={statusOptions} />} 
                 {selectedForm === 'LGU' && <LGUFormFields data={editingData} />} 
                 {selectedForm === 'GFPS' && <GFPSFormFields data={editingData} />} 
@@ -772,6 +875,8 @@ export default function App() {
         .dark-mode .hover\\:bg-indigo-100:hover { background-color: rgba(49, 46, 129, 0.8) !important; }
         
         .dark-mode .bg-amber-50 { background-color: rgba(120, 53, 15, 0.4) !important; color: #fbbf24 !important; }
+        .dark-mode .bg-fuchsia-500 { background-color: #c026d3 !important; }
+        .dark-mode .hover\\:bg-fuchsia-600:hover { background-color: #a21caf !important; }
         
         .dark-mode .hover\\:bg-slate-50:hover { background-color: #1e293b !important; color: #38bdf8 !important; }
         .dark-mode .hover\\:bg-slate-200:hover { background-color: #334155 !important; }
@@ -862,7 +967,7 @@ const DetailItem = ({ label, value, fullWidth }) => (
 const FormInput = ({ name, label, type = "text", placeholder, defaultValue, required }) => ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">{label} {required && <span className="text-rose-500">*</span>}</label><input autoComplete="off" name={name} type={type} placeholder={placeholder} defaultValue={defaultValue} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-700 font-medium transition-all" /></div> );
 const FormSelect = ({ name, label, options = [], onChange, defaultValue }) => ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">{label}</label><select name={name} onChange={onChange} defaultValue={defaultValue || ""} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-700 font-medium transition-all appearance-none cursor-pointer" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.2em' }}><option value="" disabled>Select an option...</option>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div> );
 
-const ProfileFormFields = ({ data = {}, sectorOptions = [], statusOptions = [], selectedSector, setSelectedSector }) => (
+const ProfileFormFields = ({ data = {}, sectorOptions = [], statusOptions = [], disabilityOptions = [], selectedSector, setSelectedSector }) => (
   <div className="space-y-8">
     <div>
       <h4 className="text-sm font-black text-sky-600 uppercase tracking-wider border-b border-sky-100 pb-2 mb-4">I. Personal Information</h4>
@@ -886,7 +991,7 @@ const ProfileFormFields = ({ data = {}, sectorOptions = [], statusOptions = [], 
       <h4 className="text-sm font-black text-sky-600 uppercase tracking-wider border-b border-sky-100 pb-2 mb-4">II. Sector Details</h4>
       <FormSelect name="sector" label="Beneficiary Sector" options={sectorOptions.map(s => s.name)} defaultValue={data.sector || selectedSector} onChange={(e) => setSelectedSector(e.target.value)} />
       <div className="mt-4">
-        {selectedSector === "PWD" && <FormSelect name="disability_type" label="Disability Type" options={["Physical Disability", "Visual Disability", "Hearing Disability", "Intellectual Disability", "Psychosocial Disability", "Multiple Disability"]} defaultValue={data.disability_type} />}
+        {selectedSector === "PWD" && <FormSelect name="disability_type" label="Disability Type" options={disabilityOptions.map(d => d.name)} defaultValue={data.disability_type} />}
         {selectedSector === "Youth" && <FormSelect name="youth_status" label="Youth Status" options={["In School", "Out of School Youth", "Employed", "Unemployed", "Youth Leaders"]} defaultValue={data.youth_status} />}
         {selectedSector === "Solo Parent" && <FormSelect name="solo_parent_status" label="Solo Parent Status" options={["Widow/Widower", "Separated/Divorced", "Unmarried Parent", "Spouse Detained", "Spouse Overseas"]} defaultValue={data.solo_parent_status} />}
         {selectedSector === "Women" && <FormSelect name="women_status" label="Women Category" options={["Women of Reproductive Age (15-49)", "Pregnant Women", "Lactating Mothers", "Women Heads of Household", "Women Employed", "Women Entrepreneurs", "Women in Leadership Positions"]} defaultValue={data.women_status} />}
