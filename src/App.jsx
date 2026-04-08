@@ -4,8 +4,8 @@ import {
   LayoutDashboard, Users, Building2, GraduationCap, Menu, Activity,
   PlusCircle, Search, Edit, Trash2, X, Lock, ShieldCheck,
   User as UserIcon, LogOut, Plane, ChevronDown, ChevronUp, BadgeCheck,
-  Download, FileText 
-} from 'lucide-react';
+  Download, FileText, Sun, Moon 
+} from 'lucide-react'; 
 
 import * as XLSX from 'xlsx';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
@@ -32,7 +32,7 @@ const LoginScreen = ({ onLogin, onGoogleLogin, authError, setAuthError }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 font-sans p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 font-sans p-4 transition-colors duration-300">
       <div className="bg-white p-8 sm:p-10 rounded-[2rem] shadow-xl border border-slate-100 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-black text-sky-600 tracking-tight mb-2">PESO Registry</h1>
@@ -82,6 +82,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('Dashboard'); 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedForm, setSelectedForm] = useState('Profiles'); 
+
+  // --- DARK MODE STATE ---
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState('Newest');
@@ -195,10 +198,10 @@ export default function App() {
     setSortOption('Newest');
   }, [activeTab, userRole]);
 
-
   const handleAddAdmin = async (e) => {
     e.preventDefault();
     const email = e.target.new_admin_email.value.trim().toLowerCase();
+    if (!email) return alert("Please enter an email.");
     const { error } = await supabase.from('authorized_admins').insert([{ email }]);
     if (error) {
       if (error.code === '23505') alert("This email is already an admin.");
@@ -220,6 +223,7 @@ export default function App() {
   const handleAddSector = async (e) => {
     e.preventDefault();
     const name = e.target.new_sector.value.trim();
+    if (!name) return alert("Please enter a sector name.");
     const { error } = await supabase.from('sector_categories').insert([{ name }]);
     if (error) {
       if (error.code === '23505') alert("This sector already exists.");
@@ -240,6 +244,7 @@ export default function App() {
   const handleAddStatus = async (e) => {
     e.preventDefault();
     const name = e.target.new_status.value.trim();
+    if (!name) return alert("Please enter a status name.");
     const { error } = await supabase.from('status_categories').insert([{ name }]);
     if (error) {
       if (error.code === '23505') alert("This status already exists.");
@@ -335,12 +340,20 @@ export default function App() {
     e.preventDefault();
     const formData = new FormData(e.target);
     const payload = Object.fromEntries(formData.entries());
+    
     let table = '';
     if (activeTab === 'Profiles' || selectedForm === 'Profiles') table = 'profiles';
     if (activeTab === 'LGU' || selectedForm === 'LGU') table = 'lgu_employees';
     if (activeTab === 'GFPS' || selectedForm === 'GFPS') table = 'gfps_members';
     if (activeTab === 'OFW' || selectedForm === 'OFW') table = 'ofw_profiles';
     if (activeTab === 'Trainings' || selectedForm === 'Trainings') table = 'capacity_trainings';
+
+    if (payload.hasOwnProperty('last_name') && (!payload.last_name || !payload.first_name)) {
+      return alert("Wait! Please fill out both the First Name and Last Name. Don't worry, your other data hasn't been deleted!");
+    }
+    if (payload.hasOwnProperty('training_title') && !payload.training_title) {
+      return alert("Please enter a Training Title.");
+    }
 
     if (modalMode === 'add') {
       if (table === 'lgu_employees') {
@@ -410,7 +423,7 @@ export default function App() {
   const calcTotal = (arr) => [ "Total", arr.reduce((sum, row) => sum + row[1], 0), arr.reduce((sum, row) => sum + row[2], 0), arr.reduce((sum, row) => sum + row[3], 0) ];
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden selection:bg-sky-100">
+    <div className={`flex h-screen font-sans overflow-hidden selection:bg-sky-100 transition-colors duration-300 ${isDarkMode ? 'dark-mode bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-800'}`}>
       {sidebarOpen && ( <div className="fixed inset-0 bg-slate-900/50 z-20 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} /> )}
 
       <aside className={`fixed lg:static inset-y-0 left-0 z-30 w-72 bg-white border-r border-slate-100 transform transition-transform duration-300 ease-in-out flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
@@ -436,11 +449,13 @@ export default function App() {
               
               <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 mt-6">System</p>
               <SidebarItem icon={<ShieldCheck size={20} />} label="System Administration" active={activeTab === 'Admins'} onClick={() => { setActiveTab('Admins'); setSidebarOpen(false); }} />
+              <SidebarItem icon={isDarkMode ? <Sun size={20} /> : <Moon size={20} />} label={isDarkMode ? "Light Mode" : "Dark Mode"} active={false} onClick={() => setIsDarkMode(!isDarkMode)} />
             </>
           ) : (
             <>
               <p className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Tasks</p>
               <SidebarItem icon={<PlusCircle size={20} />} label="Submit New Forms" active={activeTab === 'SubmitForm'} onClick={() => { setActiveTab('SubmitForm'); setSidebarOpen(false); }} />
+              <SidebarItem icon={isDarkMode ? <Sun size={20} /> : <Moon size={20} />} label={isDarkMode ? "Light Mode" : "Dark Mode"} active={false} onClick={() => setIsDarkMode(!isDarkMode)} />
             </>
           )}
         </nav>
@@ -542,7 +557,7 @@ export default function App() {
                       <form onSubmit={handleAddSector} className="flex gap-4 items-end mb-10 bg-slate-50 p-6 rounded-2xl border border-slate-100">
                         <div className="flex-1 space-y-1.5">
                           <label className="text-sm font-bold text-slate-600 ml-1">Add New Sector</label>
-                          <input autoComplete="off" name="new_sector" type="text" required placeholder="e.g. LGBTQ+" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium" />
+                          <input autoComplete="off" name="new_sector" type="text" required placeholder="e.g. JODA" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium" />
                         </div>
                         <button type="submit" className="px-6 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-sm">
                           <PlusCircle size={18} /> Add Category
@@ -619,7 +634,6 @@ export default function App() {
                   </div>
                 )}
 
-                {/* TABLES WITH SEARCH AND SORT INJECTED */}
                 {activeTab === 'Profiles' && ( 
                   <div className="space-y-6">
                     <SearchBar placeholder="Type to search profiles..." searchQuery={searchQuery} setSearchQuery={setSearchQuery} sortOption={sortOption} setSortOption={setSortOption} showStatusSort={true} />
@@ -716,7 +730,54 @@ export default function App() {
           </div>
         </div>
       )}
-      <style>{` .custom-scrollbar::-webkit-scrollbar { width: 6px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; } `}</style>
+      
+      {/* GLOBAL STYLES INCLUDING NEW DARK MODE OVERRIDES */}
+      <style>{` 
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; } 
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } 
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; } 
+        
+        .dark-mode ::-webkit-scrollbar-thumb { background: #475569 !important; }
+
+        .dark-mode aside, .dark-mode header { background-color: #0f172a !important; border-color: #1e293b !important; }
+        .dark-mode .bg-white { background-color: #1e293b !important; border-color: #334155 !important; }
+        .dark-mode .bg-slate-50 { background-color: #0f172a !important; border-color: #334155 !important; }
+        .dark-mode .bg-slate-100 { background-color: #334155 !important; border-color: #334155 !important; color: #cbd5e1 !important; }
+        .dark-mode .text-slate-800 { color: #f8fafc !important; }
+        .dark-mode .text-slate-700 { color: #f1f5f9 !important; }
+        .dark-mode .text-slate-600 { color: #cbd5e1 !important; }
+        .dark-mode .text-slate-500 { color: #94a3b8 !important; }
+        .dark-mode .border-slate-100, .dark-mode .border-slate-200, .dark-mode .border-b { border-color: #334155 !important; }
+        
+        .dark-mode input, .dark-mode select, .dark-mode textarea { background-color: #0f172a !important; color: #f8fafc !important; border-color: #334155 !important; }
+        .dark-mode select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23cbd5e1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important; }
+        
+        .dark-mode table th { background-color: #1e293b !important; border-bottom-color: #334155 !important; color: #94a3b8 !important; }
+        .dark-mode table td { border-bottom-color: #1e293b !important; }
+        
+        .dark-mode tr:hover { background-color: #334155 !important; }
+        .dark-mode tfoot tr { background-color: #0f172a !important; border-top-color: #334155 !important; }
+        .dark-mode tfoot td { color: #38bdf8 !important; }
+
+        .dark-mode .bg-sky-50 { background-color: rgba(12, 74, 110, 0.4) !important; color: #38bdf8 !important; }
+        .dark-mode .hover\\:bg-sky-100:hover { background-color: rgba(12, 74, 110, 0.8) !important; }
+        
+        .dark-mode .bg-rose-50 { background-color: rgba(136, 19, 55, 0.4) !important; color: #fb7185 !important; }
+        .dark-mode .hover\\:bg-rose-100:hover { background-color: rgba(136, 19, 55, 0.8) !important; }
+        
+        .dark-mode .bg-emerald-50 { background-color: rgba(6, 78, 59, 0.4) !important; color: #34d399 !important; }
+        .dark-mode .hover\\:bg-emerald-100:hover { background-color: rgba(6, 78, 59, 0.8) !important; }
+        
+        .dark-mode .bg-indigo-50 { background-color: rgba(49, 46, 129, 0.4) !important; color: #818cf8 !important; }
+        .dark-mode .hover\\:bg-indigo-100:hover { background-color: rgba(49, 46, 129, 0.8) !important; }
+        
+        .dark-mode .bg-amber-50 { background-color: rgba(120, 53, 15, 0.4) !important; color: #fbbf24 !important; }
+        
+        .dark-mode .hover\\:bg-slate-50:hover { background-color: #1e293b !important; color: #38bdf8 !important; }
+        .dark-mode .hover\\:bg-slate-200:hover { background-color: #334155 !important; }
+        
+        .dark-mode .shadow-sky-200 { box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.5) !important; }
+      `}</style>
     </div>
   );
 }
@@ -724,7 +785,6 @@ export default function App() {
 // --- REUSABLE UI COMPONENTS ---
 const SidebarItem = ({ icon, label, active, onClick }) => ( <button onClick={onClick} className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all duration-300 font-medium ${active ? 'bg-sky-50 text-sky-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-sky-600'}`}> <div className={`${active ? 'text-sky-600' : 'text-slate-400'}`}>{icon}</div> <span>{label}</span> </button> );
 
-// REPLACED STATIC SEARCH BAR WITH LIVE FILTER AND SORT OPTIONS
 const SearchBar = ({ placeholder, searchQuery, setSearchQuery, sortOption, setSortOption, showStatusSort }) => ( 
   <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row gap-4"> 
     <div className="flex-1 relative"> 
@@ -787,7 +847,7 @@ const DataTable = ({ columns, data, onEdit, onDelete, onExportWord, renderDetail
           </tbody>
         </table>
       </div>
-      <div className="p-6 border-t border-slate-100 bg-slate-50/30 text-center"><p className="text-sm font-medium text-slate-500">Showing {data.length} records.</p></div>
+      <div className="p-6 border-t border-slate-100 bg-transparent text-center"><p className="text-sm font-medium text-slate-500">Showing {data.length} records.</p></div>
     </div>
   );
 };
@@ -799,7 +859,7 @@ const DetailItem = ({ label, value, fullWidth }) => (
   </div>
 );
 
-const FormInput = ({ name, label, type = "text", placeholder, defaultValue, required }) => ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">{label}</label><input autoComplete="off" name={name} type={type} placeholder={placeholder} defaultValue={defaultValue} required={required} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-700 font-medium transition-all" /></div> );
+const FormInput = ({ name, label, type = "text", placeholder, defaultValue, required }) => ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">{label} {required && <span className="text-rose-500">*</span>}</label><input autoComplete="off" name={name} type={type} placeholder={placeholder} defaultValue={defaultValue} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-700 font-medium transition-all" /></div> );
 const FormSelect = ({ name, label, options = [], onChange, defaultValue }) => ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">{label}</label><select name={name} onChange={onChange} defaultValue={defaultValue || ""} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-700 font-medium transition-all appearance-none cursor-pointer" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.2em' }}><option value="" disabled>Select an option...</option>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div> );
 
 const ProfileFormFields = ({ data = {}, sectorOptions = [], statusOptions = [], selectedSector, setSelectedSector }) => (
@@ -841,8 +901,8 @@ const ProfileFormFields = ({ data = {}, sectorOptions = [], statusOptions = [], 
 const LGUFormFields = ({ data = {} }) => (
   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
     {data.employee_id && ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">Employee ID</label><input disabled value={data.employee_id} className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-medium cursor-not-allowed" /></div> )}
-    <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
-    <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
+    <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} required />
+    <FormInput name="first_name" label="First Name" defaultValue={data.first_name} required />
     <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
     <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
     <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
@@ -859,8 +919,8 @@ const LGUFormFields = ({ data = {} }) => (
 const GFPSFormFields = ({ data = {} }) => (
   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
     {data.gfps_id && ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">GFPS ID</label><input disabled value={data.gfps_id} className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-medium cursor-not-allowed" /></div> )}
-    <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
-    <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
+    <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} required />
+    <FormInput name="first_name" label="First Name" defaultValue={data.first_name} required />
     <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
     <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
     <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
@@ -878,8 +938,8 @@ const OFWFormFields = ({ data = {}, statusOptions = [] }) => (
     <div>
       <h4 className="text-sm font-black text-sky-600 uppercase tracking-wider border-b border-sky-100 pb-2 mb-4">I. Personal Information</h4>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
-        <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
+        <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} required />
+        <FormInput name="first_name" label="First Name" defaultValue={data.first_name} required />
         <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
         <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
         <FormInput name="dob" label="Date of Birth" type="date" defaultValue={data.dob} />
@@ -905,7 +965,7 @@ const OFWFormFields = ({ data = {}, statusOptions = [] }) => (
 
 const TrainingFormFields = ({ data = {} }) => (
   <div className="space-y-6">
-    <FormInput name="training_title" label="Training Title" placeholder="e.g. Gender Sensitivity Training" defaultValue={data.training_title} />
+    <FormInput name="training_title" label="Training Title" placeholder="e.g. Gender Sensitivity Training" defaultValue={data.training_title} required />
     <FormSelect name="office" label="Conducting Office" options={["Mayor's Office", "Municipal/City Planning Office", "Engineering Office", "Agriculture Office", "Social Welfare Office", "Health Office", "Treasurer's Office", "Assessor's Office", "Administrative Office"]} defaultValue={data.office} />
     <div className="grid grid-cols-2 gap-6">
       <FormInput name="participants_male" label="Total Male Participants" type="number" defaultValue={data.participants_male} />
