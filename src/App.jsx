@@ -83,7 +83,6 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedForm, setSelectedForm] = useState('Profiles'); 
 
-  // --- NEW STATES FOR SEARCH AND FILTER ---
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState('Newest');
 
@@ -192,13 +191,11 @@ export default function App() {
 
   useEffect(() => {
     if (userRole) fetchData();
-    // Reset search and sort when changing tabs
     setSearchQuery('');
     setSortOption('Newest');
   }, [activeTab, userRole]);
 
 
-  // --- ADMIN FUNCTIONS ---
   const handleAddAdmin = async (e) => {
     e.preventDefault();
     const email = e.target.new_admin_email.value.trim().toLowerCase();
@@ -260,11 +257,9 @@ export default function App() {
     }
   };
 
-  // --- CORE DATA PROCESSING ENGINE (SEARCH & SORT) ---
   const getProcessedData = (data) => {
     let result = [...data];
 
-    // 1. LIVE SEARCH
     if (searchQuery.trim()) {
       const lowerQ = searchQuery.toLowerCase();
       result = result.filter(item => {
@@ -274,7 +269,6 @@ export default function App() {
       });
     }
 
-    // 2. SORTING
     result.sort((a, b) => {
       if (sortOption === 'A-Z') {
         const nameA = (a.last_name || a.training_title || '').toLowerCase();
@@ -285,12 +279,10 @@ export default function App() {
         const statB = (b.status || 'Active').toLowerCase();
         if (statA === 'active' && statB !== 'active') return -1;
         if (statA !== 'active' && statB === 'active') return 1;
-        // Fallback to date if both have same status
         return new Date(b.created_at) - new Date(a.created_at); 
       } else if (sortOption === 'Oldest') {
         return new Date(a.created_at) - new Date(b.created_at);
       } else {
-        // Newest (Default)
         return new Date(b.created_at) - new Date(a.created_at);
       }
     });
@@ -298,8 +290,6 @@ export default function App() {
     return result;
   };
 
-
-  // --- DASHBOARD CALCULATION HELPERS ---
   const countProfile = (sector, field, val, sex) => profiles.filter(p => p.sector === sector && (field ? p[field] === val : true) && (sex ? (p.sex === sex || p.sex === (sex === 'Male' ? 'M' : 'F')) : true)).length;
   const countAge = (sector, min, max, sex) => profiles.filter(p => { const age = parseInt(p.age) || 0; return p.sector === sector && age >= min && age <= max && (sex ? (p.sex === sex || p.sex === (sex === 'Male' ? 'M' : 'F')) : true); }).length;
   const countLgu = (field, val, sex) => lguData.filter(p => (field ? p[field] === val : true) && (sex ? p.sex === sex : true)).length;
@@ -394,139 +384,14 @@ export default function App() {
 
   if (!userRole) return ( <LoginScreen onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} authError={authError} setAuthError={setAuthError} /> );
 
-  // --- REUSABLE FORM COMPONENTS FOR CONSISTENCY ---
-  const ProfileFormFields = ({ data = {} }) => (
-    <div className="space-y-8">
-      <div>
-        <h4 className="text-sm font-black text-sky-600 uppercase tracking-wider border-b border-sky-100 pb-2 mb-4">I. Personal Information</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} required />
-          <FormInput name="first_name" label="First Name" defaultValue={data.first_name} required />
-          <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
-          <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
-          <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
-          <FormInput name="birthdate" label="Birthdate" type="date" defaultValue={data.birthdate} />
-          <FormSelect name="civil_status" label="Civil Status" options={["Single", "Married", "Widowed", "Separated"]} defaultValue={data.civil_status} />
-          <FormInput name="barangay" label="Barangay" defaultValue={data.barangay} />
-          <FormInput name="contact_no" label="Contact No." defaultValue={data.contact_no} />
-          <FormInput name="occupation" label="Occupation" defaultValue={data.occupation} />
-          <FormSelect name="income_level" label="Income Level" options={["below 10k", "11k-20k", "21k-30k", "31k-40k", "41k-50k", "50k-100k", "100k above"]} defaultValue={data.income_level} />
-          <FormInput name="date_registered" label="Date Registered" type="date" defaultValue={data.date_registered || new Date().toISOString().split('T')[0]} />
-          <FormSelect name="status" label="Status" options={statusOptions.map(s => s.name)} defaultValue={data.status || 'Active'} />
-        </div>
-      </div>
-      <div>
-        <h4 className="text-sm font-black text-sky-600 uppercase tracking-wider border-b border-sky-100 pb-2 mb-4">II. Sector Details</h4>
-        <FormSelect name="sector" label="Beneficiary Sector" options={sectorOptions.map(s => s.name)} defaultValue={data.sector || selectedSector} onChange={(e) => setSelectedSector(e.target.value)} />
-        <div className="mt-4">
-          {selectedSector === "PWD" && <FormSelect name="disability_type" label="Disability Type" options={["Physical Disability", "Visual Disability", "Hearing Disability", "Intellectual Disability", "Psychosocial Disability", "Multiple Disability"]} defaultValue={data.disability_type} />}
-          {selectedSector === "Youth" && <FormSelect name="youth_status" label="Youth Status" options={["In School", "Out of School Youth", "Employed", "Unemployed", "Youth Leaders"]} defaultValue={data.youth_status} />}
-          {selectedSector === "Solo Parent" && <FormSelect name="solo_parent_status" label="Solo Parent Status" options={["Widow/Widower", "Separated/Divorced", "Unmarried Parent", "Spouse Detained", "Spouse Overseas"]} defaultValue={data.solo_parent_status} />}
-          {selectedSector === "Women" && <FormSelect name="women_status" label="Women Category" options={["Women of Reproductive Age (15-49)", "Pregnant Women", "Lactating Mothers", "Women Heads of Household", "Women Employed", "Women Entrepreneurs", "Women in Leadership Positions"]} defaultValue={data.women_status} />}
-          {selectedSector === "TODA Member" && ( <div className="bg-sky-50 p-6 rounded-2xl animate-in fade-in space-y-4"> <FormSelect name="toda_role" label="TODA Role" options={["Tricycle Drivers", "Operators", "Driver-Operator"]} defaultValue={data.toda_role} /> <FormSelect name="toda_safety" label="Attended Road Safety Training?" options={["Yes", "No"]} defaultValue={data.toda_safety} /> <FormSelect name="toda_livelihood" label="Availed Livelihood Program?" options={["Yes", "No"]} defaultValue={data.toda_livelihood} /> </div> )}
-          {selectedSector === "Farmer" && <FormSelect name="farmer_status" label="Farmer Status" options={["Land Owner", "Tenant", "Farm Worker"]} defaultValue={data.farmer_status} />}
-          {selectedSector === "Fisherfolk" && <FormSelect name="fisherfolk_status" label="Fisherfolk Status" options={["Boat Owner", "Crew", "Fish Vendor", "Gleaner"]} defaultValue={data.fisherfolk_status} />}
-        </div>
-      </div>
-    </div>
-  );
-
-  const LGUFormFields = ({ data = {} }) => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {data.employee_id && ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">Employee ID</label><input disabled value={data.employee_id} className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-medium cursor-not-allowed" /></div> )}
-      <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
-      <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
-      <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
-      <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
-      <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
-      <FormSelect name="civil_status" label="Civil Status" options={["Single", "Married", "Widowed", "Separated"]} defaultValue={data.civil_status} />
-      <FormSelect name="department" label="Department" options={["Mayor's Office", "Municipal/City Planning Office", "Engineering Office", "Agriculture Office", "Social Welfare Office", "Health Office", "Treasurer's Office", "Assessor's Office", "Administrative Office"]} defaultValue={data.department} />
-      <FormInput name="position_title" label="Position Title" defaultValue={data.position_title} />
-      <FormSelect name="employment_status" label="Employment Status" options={["Permanent", "Contractual", "Job Order", "Casual"]} defaultValue={data.employment_status} />
-      <FormSelect name="salary_grade" label="Salary Grade" options={["SG 1-10", "SG 11-15", "SG 16-20", "SG 21-24", "SG 25+"]} defaultValue={data.salary_grade} />
-      <FormInput name="years_in_service" label="Years in Service" type="number" defaultValue={data.years_in_service} />
-      <FormSelect name="is_leadership_position" label="Leadership Position?" options={["No", "Department Heads", "Division Chiefs", "Supervisors"]} defaultValue={data.is_leadership_position} />
-    </div>
-  );
-
-  const GFPSFormFields = ({ data = {} }) => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {data.gfps_id && ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">GFPS ID</label><input disabled value={data.gfps_id} className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-medium cursor-not-allowed" /></div> )}
-      <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
-      <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
-      <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
-      <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
-      <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
-      <FormSelect name="department" label="Department" options={["Mayor's Office", "Engineering Office", "Health Office", "Agriculture Office"]} defaultValue={data.department} />
-      <FormInput name="position" label="Position" defaultValue={data.position} />
-      <FormSelect name="gfps_role" label="GFPS Role" options={["Executive Committee Chairperson", "Executive Committee Co-Chair", "Technical Working Group Head", "TWG Member", "Secretariat"]} defaultValue={data.gfps_role} />
-      <FormInput name="contact_number" label="Contact Number" defaultValue={data.contact_number} />
-      <FormInput name="email" label="Email" type="email" defaultValue={data.email} />
-      <FormInput name="date_designated" label="Date Designated" type="date" defaultValue={data.date_designated} />
-    </div>
-  );
-
-  const OFWFormFields = ({ data = {} }) => (
-    <div className="space-y-8">
-      <div>
-        <h4 className="text-sm font-black text-sky-600 uppercase tracking-wider border-b border-sky-100 pb-2 mb-4">I. Personal Information</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
-          <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
-          <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
-          <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
-          <FormInput name="dob" label="Date of Birth" type="date" defaultValue={data.dob} />
-          <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
-          <FormSelect name="civil_status" label="Civil Status" options={["Single", "Married", "Widowed", "Separated"]} defaultValue={data.civil_status} />
-          <FormInput name="contact_number" label="Contact Number" defaultValue={data.contact_number} />
-          <FormInput name="email" label="Email Address" type="email" defaultValue={data.email} />
-          <FormSelect name="status" label="Status" options={statusOptions.map(s => s.name)} defaultValue={data.status || 'Active'} />
-        </div>
-      </div>
-      <div>
-        <h4 className="text-sm font-black text-sky-600 uppercase tracking-wider border-b border-sky-100 pb-2 mb-4">II. Employment Details</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <FormInput name="country_employment" label="Country of Employment" defaultValue={data.country_employment} />
-          <FormInput name="job_position" label="Job Position" defaultValue={data.job_position} />
-          <FormSelect name="employment_type" label="Employment Type" options={["Land-based", "Sea-based"]} defaultValue={data.employment_type} />
-          <FormInput name="deployment_date" label="Deployment Date" type="date" defaultValue={data.deployment_date} />
-          <FormInput name="monthly_salary" label="Monthly Salary" defaultValue={data.monthly_salary} />
-        </div>
-      </div>
-    </div>
-  );
-
-  const TrainingFormFields = ({ data = {} }) => (
-    <div className="space-y-6">
-      <FormInput name="training_title" label="Training Title" placeholder="e.g. Gender Sensitivity Training" defaultValue={data.training_title} />
-      <FormSelect name="office" label="Conducting Office" options={["Mayor's Office", "Municipal/City Planning Office", "Engineering Office", "Agriculture Office", "Social Welfare Office", "Health Office", "Treasurer's Office", "Assessor's Office", "Administrative Office"]} defaultValue={data.office} />
-      <div className="grid grid-cols-2 gap-6">
-        <FormInput name="participants_male" label="Total Male Participants" type="number" defaultValue={data.participants_male} />
-        <FormInput name="participants_female" label="Total Female Participants" type="number" defaultValue={data.participants_female} />
-      </div>
-      <FormInput name="date_conducted" label="Date Conducted" type="date" defaultValue={data.date_conducted} />
-      <div className="space-y-1.5">
-        <label className="text-sm font-bold text-slate-600 ml-1">List of Participant Names</label>
-        <p className="text-xs text-slate-400 ml-1 mb-2">Type or paste the names of the attendees here (separated by commas or new lines).</p>
-        <textarea name="participant_names" rows="5" placeholder="Juan Dela Cruz, Maria Santos..." defaultValue={data.participant_names} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-700 font-medium transition-all resize-y" />
-      </div>
-    </div>
-  );
-
   const renderDetails = (tab, rawData) => {
     if (!rawData) return <p>No detailed data available.</p>;
-    const DetailItem = ({ label, value, fullWidth }) => (
-      <div className={`bg-white p-3 rounded-xl border border-slate-100 shadow-sm ${fullWidth ? 'col-span-2 md:col-span-4' : ''}`}>
-        <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</span>
-        <span className="block text-sm font-medium text-slate-800 whitespace-pre-wrap">{value || "N/A"}</span>
-      </div>
-    );
-
+    
     if (tab === 'Profiles') return ( <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in"> <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name} ${rawData.middle_name || ''}`.trim()} /> <DetailItem label="Status" value={rawData.status || 'Active'} /> <DetailItem label="Sex / Age" value={`${rawData.sex} / ${rawData.age}`} /> <DetailItem label="Birthdate" value={rawData.birthdate} /> <DetailItem label="Civil Status" value={rawData.civil_status} /> <DetailItem label="Barangay" value={rawData.barangay} /> <DetailItem label="Contact No." value={rawData.contact_no} /> <DetailItem label="Occupation" value={rawData.occupation} /> <DetailItem label="Income Level" value={rawData.income_level} /> <DetailItem label="Date Registered" value={rawData.date_registered} /> <DetailItem label="Sector" value={rawData.sector} /> <DetailItem label="Specific Detail" value={rawData.disability_type || rawData.youth_status || rawData.women_status || rawData.toda_role || rawData.farmer_status || rawData.fisherfolk_status || "N/A"} /> </div> );
     if (tab === 'LGU') return ( <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in"> <DetailItem label="Employee ID" value={rawData.employee_id} /> <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name} ${rawData.middle_name || ''}`.trim()} /> <DetailItem label="Sex / Age" value={`${rawData.sex} / ${rawData.age}`} /> <DetailItem label="Civil Status" value={rawData.civil_status} /> <DetailItem label="Department" value={rawData.department} /> <DetailItem label="Position" value={rawData.position_title} /> <DetailItem label="Status" value={rawData.employment_status} /> <DetailItem label="Salary Grade" value={rawData.salary_grade} /> <DetailItem label="Years in Service" value={rawData.years_in_service} /> <DetailItem label="Leadership" value={rawData.is_leadership_position} /> </div> );
     if (tab === 'GFPS') return ( <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in"> <DetailItem label="GFPS ID" value={rawData.gfps_id} /> <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name} ${rawData.middle_name || ''}`.trim()} /> <DetailItem label="Sex / Age" value={`${rawData.sex} / ${rawData.age}`} /> <DetailItem label="Department" value={rawData.department} /> <DetailItem label="Position" value={rawData.position} /> <DetailItem label="GFPS Role" value={rawData.gfps_role} /> <DetailItem label="Contact Number" value={rawData.contact_number} /> <DetailItem label="Email" value={rawData.email} /> <DetailItem label="Date Designated" value={rawData.date_designated} /> </div> );
     if (tab === 'Trainings') return ( <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in"> <DetailItem label="Training Title" value={rawData.training_title} /> <DetailItem label="Conducting Office" value={rawData.office} /> <DetailItem label="Date Conducted" value={rawData.date_conducted} /> <DetailItem label="Total Participants" value={Number(rawData.participants_male || 0) + Number(rawData.participants_female || 0)} /> <DetailItem label="Male Participants" value={rawData.participants_male} /> <DetailItem label="Female Participants" value={rawData.participants_female} /> <DetailItem label="Participant Names" value={rawData.participant_names} fullWidth={true} /> </div> );
-    if (tab === 'OFW') return ( <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in"> <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name} ${rawData.middle_name || ''}`.trim()} /> <DetailItem label="Status" value={rawData.status || 'Active'} /> <DetailItem label="Country" value={rawData.country_employment} /> <DetailItem label="Job Position" value={rawData.job_position} /> <DetailItem label="Employment Type" value={rawData.employment_type} /> <DetailItem label="Deployment Date" value={rawData.deployment_date} /> <DetailItem label="Salary" value={rawData.monthly_salary} /> <DetailItem label="Contact" value={rawData.contact_number} /> </div> );
+    if (tab === 'OFW') return ( <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in"> <DetailItem label="Full Name" value={`${rawData.last_name}, ${rawData.first_name} ${rawData.middle_name || ''}`.trim()} /> <DetailItem label="Status" value={rawData.status || 'Active'} /> <DetailItem label="Country" value={rawData.country_employment} /> <DetailItem label="Job Position" value={rawData.job_position} /> <DetailItem label="Employment Type" value={rawData.employment_type} /> <DetailItem label="Deployment Date" value={rawData.deployment_date} /> <DetailItem label="Income Level" value={rawData.monthly_salary} /> <DetailItem label="Contact" value={rawData.contact_number} /> </div> );
     return null;
   };
 
@@ -548,7 +413,6 @@ export default function App() {
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden selection:bg-sky-100">
       {sidebarOpen && ( <div className="fixed inset-0 bg-slate-900/50 z-20 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} /> )}
 
-      {/* --- SIDEBAR --- */}
       <aside className={`fixed lg:static inset-y-0 left-0 z-30 w-72 bg-white border-r border-slate-100 transform transition-transform duration-300 ease-in-out flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-8 flex items-center justify-center border-b border-slate-50">
           <div className="text-center">
@@ -594,7 +458,6 @@ export default function App() {
         </div>
       </aside>
 
-      {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         <header className="lg:hidden h-16 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center px-4 justify-between z-10 sticky top-0">
           <h1 className="font-bold text-slate-800">GAD Registry</h1>
@@ -631,7 +494,6 @@ export default function App() {
                   )}
                 </div>
 
-                {/* --- ADMIN & SYSTEM MANAGEMENT TAB UI --- */}
                 {activeTab === 'Admins' && (
                   <div className="space-y-6 animate-in fade-in max-w-4xl">
                     
@@ -680,7 +542,7 @@ export default function App() {
                       <form onSubmit={handleAddSector} className="flex gap-4 items-end mb-10 bg-slate-50 p-6 rounded-2xl border border-slate-100">
                         <div className="flex-1 space-y-1.5">
                           <label className="text-sm font-bold text-slate-600 ml-1">Add New Sector</label>
-                          <input autoComplete="off" name="new_sector" type="text" required placeholder="e.g. JODA" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium" />
+                          <input autoComplete="off" name="new_sector" type="text" required placeholder="e.g. LGBTQ+" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium" />
                         </div>
                         <button type="submit" className="px-6 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-sm">
                           <PlusCircle size={18} /> Add Category
@@ -733,12 +595,12 @@ export default function App() {
                     <div>
                       <h3 className="text-2xl font-black text-sky-600 border-b-2 border-sky-100 pb-3 mb-6">Part I: Beneficiary Sector Summaries (SDD)</h3>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <DashboardTable title="1.1 PWD Sector" columns={["Indicator", "Male", "Female", "Total"]} data={pwdData} totals={calcTotal(pwdData)} />
-                        <DashboardTable title="1.2 Youth Sector (Age 15-30)" columns={["Category", "Male", "Female", "Total"]} data={youthData} totals={calcTotal(youthData)} />
-                        <DashboardTable title="1.3 Solo Parent Sector" columns={["Type of Solo Parent", "Male", "Female", "Total"]} data={soloData} totals={calcTotal(soloData)} />
-                        <DashboardTable title="1.4 Women Sector" columns={["Indicator", "Count"]} data={womenData} totals={["Total Women Registered", womenData.reduce((s, row) => s + row[1], 0)]} />
-                        <DashboardTable title="1.5 Senior Citizen Sector" columns={["Age Group", "Male", "Female", "Total"]} data={seniorData} totals={calcTotal(seniorData)} />
-                        <DashboardTable title="1.6 TODA Members" columns={["Category", "Male", "Female", "Total"]} data={todaData} totals={calcTotal(todaData)} />
+                        <DashboardTable title="2.1 PWD Sector" columns={["Indicator", "Male", "Female", "Total"]} data={pwdData} totals={calcTotal(pwdData)} />
+                        <DashboardTable title="2.2 Youth Sector (Age 15-30)" columns={["Category", "Male", "Female", "Total"]} data={youthData} totals={calcTotal(youthData)} />
+                        <DashboardTable title="2.3 Solo Parent Sector" columns={["Type of Solo Parent", "Male", "Female", "Total"]} data={soloData} totals={calcTotal(soloData)} />
+                        <DashboardTable title="2.4 Women Sector" columns={["Indicator", "Count"]} data={womenData} totals={["Total Women Registered", womenData.reduce((s, row) => s + row[1], 0)]} />
+                        <DashboardTable title="2.5 Senior Citizen Sector" columns={["Age Group", "Male", "Female", "Total"]} data={seniorData} totals={calcTotal(seniorData)} />
+                        <DashboardTable title="2.6 TODA Members" columns={["Category", "Male", "Female", "Total"]} data={todaData} totals={calcTotal(todaData)} />
                       </div>
                     </div>
                     <div>
@@ -810,7 +672,11 @@ export default function App() {
                     {selectedForm === 'Profiles' && "Register GAD Beneficiary"} {selectedForm === 'OFW' && "Register OFW Profile"} {selectedForm === 'LGU' && "Register LGU Employee"} {selectedForm === 'GFPS' && "Register GFPS Member"} {selectedForm === 'Trainings' && "Log New Training"}
                   </h3>
                   <form onSubmit={handleSave} className="space-y-6">
-                    {selectedForm === 'Profiles' && <ProfileFormFields />} {selectedForm === 'OFW' && <OFWFormFields />} {selectedForm === 'LGU' && <LGUFormFields />} {selectedForm === 'GFPS' && <GFPSFormFields />} {selectedForm === 'Trainings' && <TrainingFormFields />}
+                    {selectedForm === 'Profiles' && <ProfileFormFields sectorOptions={sectorOptions} statusOptions={statusOptions} selectedSector={selectedSector} setSelectedSector={setSelectedSector} />} 
+                    {selectedForm === 'OFW' && <OFWFormFields statusOptions={statusOptions} />} 
+                    {selectedForm === 'LGU' && <LGUFormFields />} 
+                    {selectedForm === 'GFPS' && <GFPSFormFields />} 
+                    {selectedForm === 'Trainings' && <TrainingFormFields />}
                     <div className="pt-6 border-t border-slate-100 flex justify-end">
                       <button type="submit" className="px-8 py-3 bg-sky-500 text-white font-bold rounded-xl hover:bg-sky-600 shadow-md shadow-sky-200 transition-colors">Submit Record</button>
                     </div>
@@ -836,7 +702,11 @@ export default function App() {
             </div>
             <div className="p-8 overflow-y-auto custom-scrollbar">
               <form id="modalForm" onSubmit={handleSave} className="space-y-6">
-                {selectedForm === 'Profiles' && <ProfileFormFields data={editingData} />} {selectedForm === 'OFW' && <OFWFormFields data={editingData} />} {selectedForm === 'LGU' && <LGUFormFields data={editingData} />} {selectedForm === 'GFPS' && <GFPSFormFields data={editingData} />} {selectedForm === 'Trainings' && <TrainingFormFields data={editingData} />}
+                {selectedForm === 'Profiles' && <ProfileFormFields data={editingData} sectorOptions={sectorOptions} statusOptions={statusOptions} selectedSector={selectedSector} setSelectedSector={setSelectedSector} />} 
+                {selectedForm === 'OFW' && <OFWFormFields data={editingData} statusOptions={statusOptions} />} 
+                {selectedForm === 'LGU' && <LGUFormFields data={editingData} />} 
+                {selectedForm === 'GFPS' && <GFPSFormFields data={editingData} />} 
+                {selectedForm === 'Trainings' && <TrainingFormFields data={editingData} />}
               </form>
             </div>
             <div className="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
@@ -922,6 +792,132 @@ const DataTable = ({ columns, data, onEdit, onDelete, onExportWord, renderDetail
   );
 };
 
+const DetailItem = ({ label, value, fullWidth }) => (
+  <div className={`bg-white p-3 rounded-xl border border-slate-100 shadow-sm ${fullWidth ? 'col-span-2 md:col-span-4' : ''}`}>
+    <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</span>
+    <span className="block text-sm font-medium text-slate-800 whitespace-pre-wrap">{value || "N/A"}</span>
+  </div>
+);
+
 const FormInput = ({ name, label, type = "text", placeholder, defaultValue, required }) => ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">{label}</label><input autoComplete="off" name={name} type={type} placeholder={placeholder} defaultValue={defaultValue} required={required} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-700 font-medium transition-all" /></div> );
-const FormSelect = ({ name, label, options, onChange, defaultValue }) => ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">{label}</label><select name={name} onChange={onChange} defaultValue={defaultValue || ""} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-700 font-medium transition-all appearance-none cursor-pointer" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.2em' }}><option value="" disabled>Select an option...</option>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div> );
+const FormSelect = ({ name, label, options = [], onChange, defaultValue }) => ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">{label}</label><select name={name} onChange={onChange} defaultValue={defaultValue || ""} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-700 font-medium transition-all appearance-none cursor-pointer" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.2em' }}><option value="" disabled>Select an option...</option>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div> );
+
+const ProfileFormFields = ({ data = {}, sectorOptions = [], statusOptions = [], selectedSector, setSelectedSector }) => (
+  <div className="space-y-8">
+    <div>
+      <h4 className="text-sm font-black text-sky-600 uppercase tracking-wider border-b border-sky-100 pb-2 mb-4">I. Personal Information</h4>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} required />
+        <FormInput name="first_name" label="First Name" defaultValue={data.first_name} required />
+        <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
+        <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
+        <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
+        <FormInput name="birthdate" label="Birthdate" type="date" defaultValue={data.birthdate} />
+        <FormSelect name="civil_status" label="Civil Status" options={["Single", "Married", "Widowed", "Separated"]} defaultValue={data.civil_status} />
+        <FormInput name="barangay" label="Barangay" defaultValue={data.barangay} />
+        <FormInput name="contact_no" label="Contact No." defaultValue={data.contact_no} />
+        <FormInput name="occupation" label="Occupation" defaultValue={data.occupation} />
+        <FormSelect name="income_level" label="Income Level (Monthly)" options={["below 10k", "11k-20k", "21k-30k", "31k-40k", "41k-50k", "50k-100k", "100k above"]} defaultValue={data.income_level} />
+        <FormInput name="date_registered" label="Date Registered" type="date" defaultValue={data.date_registered || new Date().toISOString().split('T')[0]} />
+        <FormSelect name="status" label="Status" options={statusOptions.map(s => s.name)} defaultValue={data.status || 'Active'} />
+      </div>
+    </div>
+    <div>
+      <h4 className="text-sm font-black text-sky-600 uppercase tracking-wider border-b border-sky-100 pb-2 mb-4">II. Sector Details</h4>
+      <FormSelect name="sector" label="Beneficiary Sector" options={sectorOptions.map(s => s.name)} defaultValue={data.sector || selectedSector} onChange={(e) => setSelectedSector(e.target.value)} />
+      <div className="mt-4">
+        {selectedSector === "PWD" && <FormSelect name="disability_type" label="Disability Type" options={["Physical Disability", "Visual Disability", "Hearing Disability", "Intellectual Disability", "Psychosocial Disability", "Multiple Disability"]} defaultValue={data.disability_type} />}
+        {selectedSector === "Youth" && <FormSelect name="youth_status" label="Youth Status" options={["In School", "Out of School Youth", "Employed", "Unemployed", "Youth Leaders"]} defaultValue={data.youth_status} />}
+        {selectedSector === "Solo Parent" && <FormSelect name="solo_parent_status" label="Solo Parent Status" options={["Widow/Widower", "Separated/Divorced", "Unmarried Parent", "Spouse Detained", "Spouse Overseas"]} defaultValue={data.solo_parent_status} />}
+        {selectedSector === "Women" && <FormSelect name="women_status" label="Women Category" options={["Women of Reproductive Age (15-49)", "Pregnant Women", "Lactating Mothers", "Women Heads of Household", "Women Employed", "Women Entrepreneurs", "Women in Leadership Positions"]} defaultValue={data.women_status} />}
+        {selectedSector === "TODA Member" && ( <div className="bg-sky-50 p-6 rounded-2xl animate-in fade-in space-y-4"> <FormSelect name="toda_role" label="TODA Role" options={["Tricycle Drivers", "Operators", "Driver-Operator"]} defaultValue={data.toda_role} /> <FormSelect name="toda_safety" label="Attended Road Safety Training?" options={["Yes", "No"]} defaultValue={data.toda_safety} /> <FormSelect name="toda_livelihood" label="Availed Livelihood Program?" options={["Yes", "No"]} defaultValue={data.toda_livelihood} /> </div> )}
+        {selectedSector === "Farmer" && <FormSelect name="farmer_status" label="Farmer Status" options={["Land Owner", "Tenant", "Farm Worker"]} defaultValue={data.farmer_status} />}
+        {selectedSector === "Fisherfolk" && <FormSelect name="fisherfolk_status" label="Fisherfolk Status" options={["Boat Owner", "Crew", "Fish Vendor", "Gleaner"]} defaultValue={data.fisherfolk_status} />}
+      </div>
+    </div>
+  </div>
+);
+
+const LGUFormFields = ({ data = {} }) => (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    {data.employee_id && ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">Employee ID</label><input disabled value={data.employee_id} className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-medium cursor-not-allowed" /></div> )}
+    <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
+    <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
+    <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
+    <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
+    <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
+    <FormSelect name="civil_status" label="Civil Status" options={["Single", "Married", "Widowed", "Separated"]} defaultValue={data.civil_status} />
+    <FormSelect name="department" label="Department" options={["Mayor's Office", "Municipal/City Planning Office", "Engineering Office", "Agriculture Office", "Social Welfare Office", "Health Office", "Treasurer's Office", "Assessor's Office", "Administrative Office"]} defaultValue={data.department} />
+    <FormInput name="position_title" label="Position Title" defaultValue={data.position_title} />
+    <FormSelect name="employment_status" label="Employment Status" options={["Permanent", "Contractual", "Job Order", "Casual"]} defaultValue={data.employment_status} />
+    <FormSelect name="salary_grade" label="Salary Grade" options={["SG 1-10", "SG 11-15", "SG 16-20", "SG 21-24", "SG 25+"]} defaultValue={data.salary_grade} />
+    <FormInput name="years_in_service" label="Years in Service" type="number" defaultValue={data.years_in_service} />
+    <FormSelect name="is_leadership_position" label="Leadership Position?" options={["No", "Department Heads", "Division Chiefs", "Supervisors"]} defaultValue={data.is_leadership_position} />
+  </div>
+);
+
+const GFPSFormFields = ({ data = {} }) => (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    {data.gfps_id && ( <div className="space-y-1.5"><label className="text-sm font-bold text-slate-600 ml-1">GFPS ID</label><input disabled value={data.gfps_id} className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-medium cursor-not-allowed" /></div> )}
+    <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
+    <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
+    <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
+    <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
+    <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
+    <FormSelect name="department" label="Department" options={["Mayor's Office", "Engineering Office", "Health Office", "Agriculture Office"]} defaultValue={data.department} />
+    <FormInput name="position" label="Position" defaultValue={data.position} />
+    <FormSelect name="gfps_role" label="GFPS Role" options={["Executive Committee Chairperson", "Executive Committee Co-Chair", "Technical Working Group Head", "TWG Member", "Secretariat"]} defaultValue={data.gfps_role} />
+    <FormInput name="contact_number" label="Contact Number" defaultValue={data.contact_number} />
+    <FormInput name="email" label="Email" type="email" defaultValue={data.email} />
+    <FormInput name="date_designated" label="Date Designated" type="date" defaultValue={data.date_designated} />
+  </div>
+);
+
+const OFWFormFields = ({ data = {}, statusOptions = [] }) => (
+  <div className="space-y-8">
+    <div>
+      <h4 className="text-sm font-black text-sky-600 uppercase tracking-wider border-b border-sky-100 pb-2 mb-4">I. Personal Information</h4>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <FormInput name="last_name" label="Last Name" defaultValue={data.last_name} />
+        <FormInput name="first_name" label="First Name" defaultValue={data.first_name} />
+        <FormInput name="middle_name" label="Middle Name" defaultValue={data.middle_name} />
+        <FormSelect name="sex" label="Sex" options={["Male", "Female"]} defaultValue={data.sex} />
+        <FormInput name="dob" label="Date of Birth" type="date" defaultValue={data.dob} />
+        <FormInput name="age" label="Age" type="number" defaultValue={data.age} />
+        <FormSelect name="civil_status" label="Civil Status" options={["Single", "Married", "Widowed", "Separated"]} defaultValue={data.civil_status} />
+        <FormInput name="contact_number" label="Contact Number" defaultValue={data.contact_number} />
+        <FormInput name="email" label="Email Address" type="email" defaultValue={data.email} />
+        <FormSelect name="status" label="Status" options={statusOptions.map(s => s.name)} defaultValue={data.status || 'Active'} />
+      </div>
+    </div>
+    <div>
+      <h4 className="text-sm font-black text-sky-600 uppercase tracking-wider border-b border-sky-100 pb-2 mb-4">II. Employment Details</h4>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <FormInput name="country_employment" label="Country of Employment" defaultValue={data.country_employment} />
+        <FormInput name="job_position" label="Job Position" defaultValue={data.job_position} />
+        <FormSelect name="employment_type" label="Employment Type" options={["Land-based", "Sea-based"]} defaultValue={data.employment_type} />
+        <FormInput name="deployment_date" label="Deployment Date" type="date" defaultValue={data.deployment_date} />
+        <FormSelect name="monthly_salary" label="Income Level (Monthly)" options={["below 10k", "11k-20k", "21k-30k", "31k-40k", "41k-50k", "50k-100k", "100k above"]} defaultValue={data.monthly_salary} />
+      </div>
+    </div>
+  </div>
+);
+
+const TrainingFormFields = ({ data = {} }) => (
+  <div className="space-y-6">
+    <FormInput name="training_title" label="Training Title" placeholder="e.g. Gender Sensitivity Training" defaultValue={data.training_title} />
+    <FormSelect name="office" label="Conducting Office" options={["Mayor's Office", "Municipal/City Planning Office", "Engineering Office", "Agriculture Office", "Social Welfare Office", "Health Office", "Treasurer's Office", "Assessor's Office", "Administrative Office"]} defaultValue={data.office} />
+    <div className="grid grid-cols-2 gap-6">
+      <FormInput name="participants_male" label="Total Male Participants" type="number" defaultValue={data.participants_male} />
+      <FormInput name="participants_female" label="Total Female Participants" type="number" defaultValue={data.participants_female} />
+    </div>
+    <FormInput name="date_conducted" label="Date Conducted" type="date" defaultValue={data.date_conducted} />
+    <div className="space-y-1.5">
+      <label className="text-sm font-bold text-slate-600 ml-1">List of Participant Names</label>
+      <p className="text-xs text-slate-400 ml-1 mb-2">Type or paste the names of the attendees here (separated by commas or new lines).</p>
+      <textarea autoComplete="off" name="participant_names" rows="5" placeholder="Juan Dela Cruz, Maria Santos..." defaultValue={data.participant_names} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-700 font-medium transition-all resize-y" />
+    </div>
+  </div>
+);
+
 const DashboardTable = ({ title, columns, data, totals }) => ( <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col h-full hover:shadow-md transition-shadow"><h3 className="text-lg font-bold text-slate-800 border-b-2 border-sky-100 pb-3 mb-4">{title}</h3><div className="overflow-x-auto flex-1"><table className="w-full text-left border-collapse text-sm"><thead><tr className="bg-slate-50 text-slate-500 uppercase tracking-wider text-xs">{columns.map((col, i) => ( <th key={i} className={`p-3 font-bold border-b border-slate-100 ${i > 0 && col !== 'Office/Dept' && col !== 'Date Conducted' ? 'text-center' : ''}`}>{col}</th> ))}</tr></thead><tbody>{data.map((row, i) => ( <tr key={i} className="border-b border-slate-50 hover:bg-sky-50/50 transition-colors">{row.map((cell, j) => ( <td key={j} className={`p-3 text-slate-600 ${j === 0 ? 'font-bold text-slate-700' : 'font-medium'} ${j > 0 && typeof cell === 'number' ? 'text-center' : ''}`}>{cell}</td> ))}</tr> ))} {data.length === 0 && <tr><td colSpan={columns.length} className="p-4 text-center text-slate-400 italic">No data available.</td></tr>}</tbody>{totals && ( <tfoot><tr className="bg-sky-50/50 text-sky-800 font-black border-t-2 border-sky-200">{totals.map((total, i) => ( <td key={i} className={`p-3 ${i > 0 ? 'text-center text-lg' : ''}`}>{total}</td> ))}</tr></tfoot> )}</table></div></div> );
