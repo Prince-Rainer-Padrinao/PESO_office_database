@@ -83,6 +83,10 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedForm, setSelectedForm] = useState('Profiles'); 
 
+  // --- NEW STATES FOR SEARCH AND FILTER ---
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOption, setSortOption] = useState('Newest');
+
   const [profiles, setProfiles] = useState([]);
   const [lguData, setLguData] = useState([]);
   const [gfpsData, setGfpsData] = useState([]);
@@ -91,7 +95,7 @@ export default function App() {
   
   const [adminList, setAdminList] = useState([]); 
   const [sectorOptions, setSectorOptions] = useState([]); 
-  const [statusOptions, setStatusOptions] = useState([]); // <-- NEW STATE FOR DYNAMIC STATUSES
+  const [statusOptions, setStatusOptions] = useState([]);
   
   const [loading, setLoading] = useState(false);
 
@@ -188,6 +192,9 @@ export default function App() {
 
   useEffect(() => {
     if (userRole) fetchData();
+    // Reset search and sort when changing tabs
+    setSearchQuery('');
+    setSortOption('Newest');
   }, [activeTab, userRole]);
 
 
@@ -253,6 +260,45 @@ export default function App() {
     }
   };
 
+  // --- CORE DATA PROCESSING ENGINE (SEARCH & SORT) ---
+  const getProcessedData = (data) => {
+    let result = [...data];
+
+    // 1. LIVE SEARCH
+    if (searchQuery.trim()) {
+      const lowerQ = searchQuery.toLowerCase();
+      result = result.filter(item => {
+        return Object.values(item).some(val => 
+          val && String(val).toLowerCase().includes(lowerQ)
+        );
+      });
+    }
+
+    // 2. SORTING
+    result.sort((a, b) => {
+      if (sortOption === 'A-Z') {
+        const nameA = (a.last_name || a.training_title || '').toLowerCase();
+        const nameB = (b.last_name || b.training_title || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      } else if (sortOption === 'Status (Active First)') {
+        const statA = (a.status || 'Active').toLowerCase();
+        const statB = (b.status || 'Active').toLowerCase();
+        if (statA === 'active' && statB !== 'active') return -1;
+        if (statA !== 'active' && statB === 'active') return 1;
+        // Fallback to date if both have same status
+        return new Date(b.created_at) - new Date(a.created_at); 
+      } else if (sortOption === 'Oldest') {
+        return new Date(a.created_at) - new Date(b.created_at);
+      } else {
+        // Newest (Default)
+        return new Date(b.created_at) - new Date(a.created_at);
+      }
+    });
+
+    return result;
+  };
+
+
   // --- DASHBOARD CALCULATION HELPERS ---
   const countProfile = (sector, field, val, sex) => profiles.filter(p => p.sector === sector && (field ? p[field] === val : true) && (sex ? (p.sex === sex || p.sex === (sex === 'Male' ? 'M' : 'F')) : true)).length;
   const countAge = (sector, min, max, sex) => profiles.filter(p => { const age = parseInt(p.age) || 0; return p.sector === sector && age >= min && age <= max && (sex ? (p.sex === sex || p.sex === (sex === 'Male' ? 'M' : 'F')) : true); }).length;
@@ -265,11 +311,12 @@ export default function App() {
   const handleExportExcel = () => {
     let dataToExport = [];
     let filename = "";
-    if (activeTab === 'Profiles') { dataToExport = profiles; filename = "GAD_Beneficiaries"; }
-    else if (activeTab === 'LGU') { dataToExport = lguData; filename = "LGU_Employees"; }
-    else if (activeTab === 'GFPS') { dataToExport = gfpsData; filename = "GFPS_Members"; }
-    else if (activeTab === 'OFW') { dataToExport = ofwData; filename = "OFW_Records"; }
-    else if (activeTab === 'Trainings') { dataToExport = trainings; filename = "Training_Logs"; }
+    if (activeTab === 'Profiles') { dataToExport = getProcessedData(profiles); filename = "GAD_Beneficiaries"; }
+    else if (activeTab === 'LGU') { dataToExport = getProcessedData(lguData); filename = "LGU_Employees"; }
+    else if (activeTab === 'GFPS') { dataToExport = getProcessedData(gfpsData); filename = "GFPS_Members"; }
+    else if (activeTab === 'OFW') { dataToExport = getProcessedData(ofwData); filename = "OFW_Records"; }
+    else if (activeTab === 'Trainings') { dataToExport = getProcessedData(trainings); filename = "Training_Logs"; }
+    
     if (dataToExport.length === 0) return alert("No data available to export.");
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
@@ -652,7 +699,6 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* NEW: MANAGE STATUS LABELS */}
                     <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
                       <h3 className="text-xl font-black text-sky-600 mb-2">Manage Record Statuses</h3>
                       <p className="text-slate-500 font-medium mb-8">Add or remove options for the "Status" dropdown found in the GAD and OFW forms.</p>
@@ -711,11 +757,37 @@ export default function App() {
                   </div>
                 )}
 
-                {activeTab === 'Profiles' && ( <div className="space-y-6"><SearchBar placeholder="Search by name or sector..." /><DataTable columns={["Name & Info", "Sector", "Specific Details", "Actions"]} data={profiles.map(p => ({ id: p.id, raw: p, col1: <><div className="flex items-center gap-2"><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${(!p.status || p.status === 'Active') ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{p.status || 'Active'}</span></div><p className="text-xs font-medium text-slate-400 mt-1">{p.sex} • {p.age} yrs • {p.barangay}</p></>, col2: <span className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase tracking-wide">{p.sector}</span>, col3: p.disability_type || p.women_status || p.youth_status || "N/A" }))} onEdit={openEditModal} onDelete={(id) => handleDelete('profiles', id)} onExportWord={handleExportWord} renderDetails={(raw) => renderDetails('Profiles', raw)} /></div> )}
-                {activeTab === 'OFW' && ( <div className="space-y-6"><SearchBar placeholder="Search by name, country, or job..." /><DataTable columns={["OFW Name", "Country & Role", "Status", "Actions"]} data={ofwData.map(p => ({ id: p.id, raw: p, col1: <><div className="flex items-center gap-2"><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${(!p.status || p.status === 'Active') ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{p.status || 'Active'}</span></div><p className="text-xs font-medium text-slate-400 mt-1">{p.job_position}</p></>, col2: <><p className="font-semibold text-slate-700">{p.country_employment}</p><p className="text-xs text-slate-400">Deployed: {p.deployment_date}</p></>, col3: <span className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase tracking-wide">{p.status || 'Active'}</span> }))} onEdit={openEditModal} onDelete={(id) => handleDelete('ofw_profiles', id)} onExportWord={handleExportWord} renderDetails={(raw) => renderDetails('OFW', raw)} /></div> )}
-                {activeTab === 'LGU' && ( <div className="space-y-6"><SearchBar placeholder="Search by name, ID, or department..." /><DataTable columns={["Employee", "Department", "Status", "Actions"]} data={lguData.map(p => ({ id: p.id, raw: p, col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><p className="text-xs font-medium text-slate-400 mt-1">ID: {p.employee_id} • {p.position_title}</p></>, col2: <><p className="font-semibold text-slate-700">{p.department}</p><p className="text-xs text-slate-400">{p.salary_grade}</p></>, col3: <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold uppercase tracking-wide">{p.employment_status}</span> }))} onEdit={openEditModal} onDelete={(id) => handleDelete('lgu_employees', id)} onExportWord={handleExportWord} renderDetails={(raw) => renderDetails('LGU', raw)} /></div> )}
-                {activeTab === 'GFPS' && ( <div className="space-y-6"><SearchBar placeholder="Search by name, ID, or role..." /><DataTable columns={["Member Name", "Department & Position", "GFPS Role", "Actions"]} data={gfpsData.map(p => ({ id: p.id, raw: p, col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><p className="text-xs font-medium text-slate-400 mt-1">ID: {p.gfps_id}</p></>, col2: <><p className="font-semibold text-slate-700">{p.department}</p><p className="text-xs text-slate-400">{p.position}</p></>, col3: <span className="px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg text-xs font-bold uppercase tracking-wide">{p.gfps_role}</span> }))} onEdit={openEditModal} onDelete={(id) => handleDelete('gfps_members', id)} onExportWord={handleExportWord} renderDetails={(raw) => renderDetails('GFPS', raw)} /></div> )}
-                {activeTab === 'Trainings' && ( <div className="space-y-6"><SearchBar placeholder="Search training title or office..." /><DataTable columns={["Training Title", "Participants (M/F)", "Office", "Actions"]} data={trainings.map(p => ({ id: p.id, raw: p, col1: <><p className="font-bold text-slate-800 text-base">{p.training_title}</p><p className="text-xs font-medium text-slate-400 mt-1">{p.date_conducted}</p></>, col2: <><span className="text-sky-600 font-bold">{p.participants_male}M</span> / <span className="text-emerald-600 font-bold">{p.participants_female}F</span> <span className="text-slate-400 text-xs ml-2">(Total: {Number(p.participants_male || 0) + Number(p.participants_female || 0)})</span></>, col3: p.office }))} onEdit={openEditModal} onDelete={(id) => handleDelete('capacity_trainings', id)} onExportWord={handleExportWord} renderDetails={(raw) => renderDetails('Trainings', raw)} /></div> )}
+                {/* TABLES WITH SEARCH AND SORT INJECTED */}
+                {activeTab === 'Profiles' && ( 
+                  <div className="space-y-6">
+                    <SearchBar placeholder="Type to search profiles..." searchQuery={searchQuery} setSearchQuery={setSearchQuery} sortOption={sortOption} setSortOption={setSortOption} showStatusSort={true} />
+                    <DataTable columns={["Name & Info", "Sector", "Specific Details", "Actions"]} data={getProcessedData(profiles).map(p => ({ id: p.id, raw: p, col1: <><div className="flex items-center gap-2"><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${(!p.status || p.status === 'Active') ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{p.status || 'Active'}</span></div><p className="text-xs font-medium text-slate-400 mt-1">{p.sex} • {p.age} yrs • {p.barangay}</p></>, col2: <span className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase tracking-wide">{p.sector}</span>, col3: p.disability_type || p.women_status || p.youth_status || "N/A" }))} onEdit={openEditModal} onDelete={(id) => handleDelete('profiles', id)} onExportWord={handleExportWord} renderDetails={(raw) => renderDetails('Profiles', raw)} />
+                  </div> 
+                )}
+                {activeTab === 'OFW' && ( 
+                  <div className="space-y-6">
+                    <SearchBar placeholder="Type to search OFW records..." searchQuery={searchQuery} setSearchQuery={setSearchQuery} sortOption={sortOption} setSortOption={setSortOption} showStatusSort={true} />
+                    <DataTable columns={["OFW Name", "Country & Role", "Status", "Actions"]} data={getProcessedData(ofwData).map(p => ({ id: p.id, raw: p, col1: <><div className="flex items-center gap-2"><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${(!p.status || p.status === 'Active') ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{p.status || 'Active'}</span></div><p className="text-xs font-medium text-slate-400 mt-1">{p.job_position}</p></>, col2: <><p className="font-semibold text-slate-700">{p.country_employment}</p><p className="text-xs text-slate-400">Deployed: {p.deployment_date}</p></>, col3: <span className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase tracking-wide">{p.status || 'Active'}</span> }))} onEdit={openEditModal} onDelete={(id) => handleDelete('ofw_profiles', id)} onExportWord={handleExportWord} renderDetails={(raw) => renderDetails('OFW', raw)} />
+                  </div> 
+                )}
+                {activeTab === 'LGU' && ( 
+                  <div className="space-y-6">
+                    <SearchBar placeholder="Type to search employees..." searchQuery={searchQuery} setSearchQuery={setSearchQuery} sortOption={sortOption} setSortOption={setSortOption} showStatusSort={false} />
+                    <DataTable columns={["Employee", "Department", "Status", "Actions"]} data={getProcessedData(lguData).map(p => ({ id: p.id, raw: p, col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><p className="text-xs font-medium text-slate-400 mt-1">ID: {p.employee_id} • {p.position_title}</p></>, col2: <><p className="font-semibold text-slate-700">{p.department}</p><p className="text-xs text-slate-400">{p.salary_grade}</p></>, col3: <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold uppercase tracking-wide">{p.employment_status}</span> }))} onEdit={openEditModal} onDelete={(id) => handleDelete('lgu_employees', id)} onExportWord={handleExportWord} renderDetails={(raw) => renderDetails('LGU', raw)} />
+                  </div> 
+                )}
+                {activeTab === 'GFPS' && ( 
+                  <div className="space-y-6">
+                    <SearchBar placeholder="Type to search GFPS members..." searchQuery={searchQuery} setSearchQuery={setSearchQuery} sortOption={sortOption} setSortOption={setSortOption} showStatusSort={false} />
+                    <DataTable columns={["Member Name", "Department & Position", "GFPS Role", "Actions"]} data={getProcessedData(gfpsData).map(p => ({ id: p.id, raw: p, col1: <><p className="font-bold text-slate-800 text-base">{p.last_name}, {p.first_name} {p.middle_name || ''}</p><p className="text-xs font-medium text-slate-400 mt-1">ID: {p.gfps_id}</p></>, col2: <><p className="font-semibold text-slate-700">{p.department}</p><p className="text-xs text-slate-400">{p.position}</p></>, col3: <span className="px-3 py-1.5 bg-sky-50 text-sky-600 rounded-lg text-xs font-bold uppercase tracking-wide">{p.gfps_role}</span> }))} onEdit={openEditModal} onDelete={(id) => handleDelete('gfps_members', id)} onExportWord={handleExportWord} renderDetails={(raw) => renderDetails('GFPS', raw)} />
+                  </div> 
+                )}
+                {activeTab === 'Trainings' && ( 
+                  <div className="space-y-6">
+                    <SearchBar placeholder="Type to search trainings..." searchQuery={searchQuery} setSearchQuery={setSearchQuery} sortOption={sortOption} setSortOption={setSortOption} showStatusSort={false} />
+                    <DataTable columns={["Training Title", "Participants (M/F)", "Office", "Actions"]} data={getProcessedData(trainings).map(p => ({ id: p.id, raw: p, col1: <><p className="font-bold text-slate-800 text-base">{p.training_title}</p><p className="text-xs font-medium text-slate-400 mt-1">{p.date_conducted}</p></>, col2: <><span className="text-sky-600 font-bold">{p.participants_male}M</span> / <span className="text-emerald-600 font-bold">{p.participants_female}F</span> <span className="text-slate-400 text-xs ml-2">(Total: {Number(p.participants_male || 0) + Number(p.participants_female || 0)})</span></>, col3: p.office }))} onEdit={openEditModal} onDelete={(id) => handleDelete('capacity_trainings', id)} onExportWord={handleExportWord} renderDetails={(raw) => renderDetails('Trainings', raw)} />
+                  </div> 
+                )}
               </>
             )}
 
@@ -781,7 +853,36 @@ export default function App() {
 
 // --- REUSABLE UI COMPONENTS ---
 const SidebarItem = ({ icon, label, active, onClick }) => ( <button onClick={onClick} className={`w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all duration-300 font-medium ${active ? 'bg-sky-50 text-sky-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-sky-600'}`}> <div className={`${active ? 'text-sky-600' : 'text-slate-400'}`}>{icon}</div> <span>{label}</span> </button> );
-const SearchBar = ({ placeholder }) => ( <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row gap-4"> <div className="flex-1 relative"> <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} /> <input autoComplete="off" type="text" placeholder={placeholder} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium transition-all" /> </div> <button className="px-8 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-700 transition-all shadow-md">Search</button> </div> );
+
+// REPLACED STATIC SEARCH BAR WITH LIVE FILTER AND SORT OPTIONS
+const SearchBar = ({ placeholder, searchQuery, setSearchQuery, sortOption, setSortOption, showStatusSort }) => ( 
+  <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row gap-4"> 
+    <div className="flex-1 relative"> 
+      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} /> 
+      <input 
+        autoComplete="off" 
+        type="text" 
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder={placeholder} 
+        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium transition-all" 
+      /> 
+    </div> 
+    <div className="sm:w-72">
+      <select 
+        value={sortOption}
+        onChange={(e) => setSortOption(e.target.value)}
+        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium transition-all appearance-none cursor-pointer" 
+        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.2em' }}
+      >
+        <option value="Newest">Sort: Date Added (Newest)</option>
+        <option value="Oldest">Sort: Date Added (Oldest)</option>
+        <option value="A-Z">Sort: Alphabetical (A-Z)</option>
+        {showStatusSort && <option value="Status (Active First)">Sort: Status (Active First)</option>}
+      </select>
+    </div>
+  </div> 
+);
 
 const DataTable = ({ columns, data, onEdit, onDelete, onExportWord, renderDetails }) => {
   const [expandedId, setExpandedId] = useState(null);
