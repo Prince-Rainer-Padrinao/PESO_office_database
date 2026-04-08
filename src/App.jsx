@@ -35,7 +35,7 @@ const LoginScreen = ({ onLogin, onGoogleLogin, authError, setAuthError }) => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 font-sans p-4 transition-colors duration-300">
       <div className="bg-white p-8 sm:p-10 rounded-[2rem] shadow-xl border border-slate-100 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-black text-sky-600 tracking-tight mb-2">PESO Registry</h1>
+          <h1 className="text-3xl font-black text-sky-600 tracking-tight mb-2">GAD Database</h1>
           <p className="text-slate-500 font-medium">Access Portal</p>
         </div>
 
