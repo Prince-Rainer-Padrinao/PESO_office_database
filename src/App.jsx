@@ -98,7 +98,7 @@ export default function App() {
   const [adminList, setAdminList] = useState([]); 
   const [sectorOptions, setSectorOptions] = useState([]); 
   const [statusOptions, setStatusOptions] = useState([]);
-  const [disabilityOptions, setDisabilityOptions] = useState([]); // <-- NEW STATE FOR PWD DISABILITIES
+  const [disabilityOptions, setDisabilityOptions] = useState([]); 
   
   const [loading, setLoading] = useState(false);
 
@@ -131,7 +131,6 @@ export default function App() {
     if (data) setStatusOptions(data);
   };
 
-  // --- FETCH DYNAMIC DISABILITIES ---
   const fetchDisabilities = async () => {
     const { data } = await supabase.from('disability_categories').select('*').order('name', { ascending: true });
     if (data) setDisabilityOptions(data);
@@ -143,7 +142,7 @@ export default function App() {
     if (activeTab === 'Profiles' || activeTab === 'Dashboard') table = 'profiles'; 
     if (activeTab === 'LGU' || activeTab === 'Dashboard') table = 'lgu_employees'; 
     if (activeTab === 'GFPS' || activeTab === 'Dashboard') table = 'gfps_members'; 
-    if (activeTab === 'OFW' || activeTab === 'Dashboard') table = 'ofw_profiles'; // Update OFW for Dashboard
+    if (activeTab === 'OFW' || activeTab === 'Dashboard') table = 'ofw_profiles'; 
     if (activeTab === 'Trainings' || activeTab === 'Dashboard') table = 'capacity_trainings'; 
 
     if (activeTab === 'Admins') fetchAdmins(); 
@@ -272,7 +271,6 @@ export default function App() {
     }
   };
 
-  // --- NEW: MANAGE DISABILITIES ---
   const handleAddDisability = async (e) => {
     e.preventDefault();
     const name = e.target.new_disability.value.trim();
@@ -442,7 +440,6 @@ export default function App() {
     return null;
   };
 
-  // --- DASHBOARD DATA PREPARATION ---
   const pwdData = disabilityOptions.map(type => buildStatRow(type.name, 'PWD', 'disability_type', type.name));
   const youthData = ['In School', 'Out of School Youth', 'Employed', 'Unemployed', 'Youth Leaders'].map(type => buildStatRow(type, 'Youth', 'youth_status', type));
   const soloData = ['Widow/Widower', 'Separated/Divorced', 'Unmarried Parent', 'Spouse Detained', 'Spouse Overseas'].map(type => buildStatRow(type, 'Solo Parent', 'solo_parent_status', type));
@@ -450,7 +447,6 @@ export default function App() {
   const seniorData = [ ['60-69', countAge('Senior Citizen', 60, 69, 'Male'), countAge('Senior Citizen', 60, 69, 'Female')], ['70-79', countAge('Senior Citizen', 70, 79, 'Male'), countAge('Senior Citizen', 70, 79, 'Female')], ['80-89', countAge('Senior Citizen', 80, 89, 'Male'), countAge('Senior Citizen', 80, 89, 'Female')], ['90+', countAge('Senior Citizen', 90, 999, 'Male'), countAge('Senior Citizen', 90, 999, 'Female')] ].map(row => [row[0], row[1], row[2], row[1]+row[2]]);
   const todaData = [ buildStatRow('Tricycle Drivers', 'TODA Member', 'toda_role', 'Tricycle Drivers'), buildStatRow('Operators', 'TODA Member', 'toda_role', 'Operators'), buildStatRow('Driver-Operator', 'TODA Member', 'toda_role', 'Driver-Operator') ];
   
-  // DYNAMIC SECTOR ENGINE
   const standardSectors = ["PWD", "Youth", "Solo Parent", "Women", "Senior Citizen", "TODA Member"];
   const dynamicSectorData = sectorOptions
     .filter(s => !standardSectors.includes(s.name))
@@ -460,12 +456,11 @@ export default function App() {
     });
 
   // OFW DASHBOARD DATA (PART 2)
-  const ofwStatusData = ['Active', 'Vacationing in PH', 'End of Contract', 'Repatriated'].map(status => buildOfwRow(status, 'current_status', status));
+  const ofwStatusData = statusOptions.map(s => buildOfwRow(s.name, 'status', s.name));
   const ofwTypeData = ['Land-based', 'Sea-based'].map(type => buildOfwRow(type, 'employment_type', type));
   const uniqueCountries = [...new Set(ofwData.map(o => o.country_employment).filter(Boolean))];
   const ofwCountryData = uniqueCountries.map(c => buildOfwRow(c, 'country_employment', c));
 
-  // INTERNAL RECORDS DATA (PART 3)
   const gfpsSumData = [ ['Executive Committee', countGfps('Exec', 'Male'), countGfps('Exec', 'Female')], ['Technical Working Group', countGfps('TWG', 'Male'), countGfps('TWG', 'Female')], ['Secretariat', countGfps('Sec', 'Male'), countGfps('Sec', 'Female')] ].map(row => [row[0], row[1], row[2], row[1]+row[2]]);
   const lguEmpData = ['Permanent', 'Contractual', 'Job Order', 'Casual'].map(t => buildLguRow(`${t} Employees`, 'employment_status', t));
   const lguSgData = ['SG 1-10', 'SG 11-15', 'SG 16-20', 'SG 21-24', 'SG 25+'].map(t => buildLguRow(t, 'salary_grade', t));
@@ -610,7 +605,7 @@ export default function App() {
                       <form onSubmit={handleAddSector} className="flex gap-4 items-end mb-10 bg-slate-50 p-6 rounded-2xl border border-slate-100">
                         <div className="flex-1 space-y-1.5">
                           <label className="text-sm font-bold text-slate-600 ml-1">Add New Sector</label>
-                          <input autoComplete="off" name="new_sector" type="text" required placeholder="e.g. JODA" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium" />
+                          <input autoComplete="off" name="new_sector" type="text" required placeholder="e.g. LGBTQ+" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 text-slate-700 font-medium" />
                         </div>
                         <button type="submit" className="px-6 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2 shadow-sm">
                           <PlusCircle size={18} /> Add Category
@@ -712,7 +707,7 @@ export default function App() {
                     <div>
                       <h3 className="text-2xl font-black text-sky-600 border-b-2 border-sky-100 pb-3 mb-6 mt-12">Part II: Overseas Filipino Workers (OFW)</h3>
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <DashboardTable title="OFW Deployment Status" columns={["Status", "Male", "Female", "Total"]} data={ofwStatusData} totals={calcTotal(ofwStatusData)} />
+                        <DashboardTable title="OFW Status" columns={["Status", "Male", "Female", "Total"]} data={ofwStatusData} totals={calcTotal(ofwStatusData)} />
                         <DashboardTable title="OFW Employment Type" columns={["Type", "Male", "Female", "Total"]} data={ofwTypeData} totals={calcTotal(ofwTypeData)} />
                         <div className="lg:col-span-2">
                           <DashboardTable title="OFW Countries of Deployment" columns={["Country", "Male", "Female", "Total"]} data={ofwCountryData} totals={calcTotal(ofwCountryData)} />
